@@ -3,12 +3,15 @@
 # pylint: disable=invalid-name
 
 from collections import OrderedDict
+import os
 from pathlib import Path
 
-import caffe
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+
+os.environ['GLOG_minloglevel'] = '1'
+import caffe  # pylint: disable=wrong-import-position
 
 
 def to_image(arr):
