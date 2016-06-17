@@ -2,7 +2,7 @@
 
 # pylint: disable=invalid-name
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 import os
 from pathlib import Path
 
@@ -41,11 +41,23 @@ class _LayerIndexer:
     def __setitem__(self, key, value):
         getattr(self.net.blobs[key], self.attr)[0] = value
 
+CNNData = namedtuple('CNNData', 'deploy model mean')
+
+_BASE_DIR = Path(__file__).parent
+_GDIR1 = _BASE_DIR/'bvlc_googlenet'
+BVLC_GOOGLENET = CNNData(_GDIR1/'deploy.prototxt',
+                         _GDIR1/'bvlc_googlenet.caffemodel',
+                         (104, 117, 123))
+_GDIR2 = _BASE_DIR/'googlenet_places205'
+GOOGLENET_PLACES = CNNData(_GDIR2/'deploy_places205.prototxt',
+                           _GDIR2/'googlenet_places205_train_iter_2400000.caffemodel',
+                           (104, 117, 123))  # TODO: find the actual mean of the MIT Places dataset
+
 
 class CNN:
     """Represents an instance of a Caffe convolutional neural network."""
 
-    def __init__(self, gpu=None):
+    def __init__(self, data, gpu=None):
         """Initializes a CNN.
 
         Args:
@@ -53,10 +65,7 @@ class CNN:
                 system with one GPU, it should be 0. If not present Caffe will use the CPU.
         """
         self.start = 'data'
-        pwd = Path(__file__).parent
-        self.net = caffe.Classifier(str(pwd/'bvlc_googlenet/deploy.prototxt'),
-                                    str(pwd/'bvlc_googlenet/bvlc_googlenet.caffemodel'),
-                                    mean=np.float32((103.939, 116.779, 123.68)),
+        self.net = caffe.Classifier(str(data.deploy), str(data.model), mean=np.float32(data.mean),
                                     channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
