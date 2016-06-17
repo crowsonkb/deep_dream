@@ -15,7 +15,7 @@ import caffe  # pylint: disable=wrong-import-position
 
 
 def to_image(arr):
-    """Clips the values in a float32 image to 0-255 and converts it to a PIL image."""
+    """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image."""
     return Image.fromarray(np.uint8(np.clip(np.round(arr), 0, 255)))
 
 
@@ -139,7 +139,7 @@ class CNN:
         """Returns a list of layer names, suitable for the 'end' argument of dream()."""
         return self.net.layers()
 
-    def dream(self, input_img, layers, progress=True, **kwargs):
+    def dream(self, input_img, layers, progress=True, return_ndarray=False, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
@@ -160,6 +160,11 @@ class CNN:
 
         Returns:
             The processed image, as a PIL image.
+
+            If ndarray is true, returns the unclipped processed image as a float32 ndarray which
+            has a valid range of 0-255 but which may contain components that are less than 0 or
+            greater than 255. Both the PIL image and the ndarray are valid inputs to dream().
+            deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
         if isinstance(layers, str):
             layers = [layers]
@@ -182,4 +187,7 @@ class CNN:
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
-        return to_image(self._deprocess(detail + input_arr))
+        out = self._deprocess(detail + input_arr)
+        if return_ndarray:
+            return out
+        return to_image(out)
