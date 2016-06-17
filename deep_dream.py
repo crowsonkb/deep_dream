@@ -3,6 +3,7 @@
 # pylint: disable=invalid-name
 
 from collections import OrderedDict
+from pathlib import Path
 
 import caffe
 import numpy as np
@@ -49,8 +50,9 @@ class CNN:
                 system with one GPU, it should be 0. If not present Caffe will use the CPU.
         """
         self.start = 'data'
-        self.net = caffe.Classifier('bvlc_googlenet/deploy.prototxt',
-                                    'bvlc_googlenet/bvlc_googlenet.caffemodel',
+        pwd = Path(__file__).parent
+        self.net = caffe.Classifier(str(pwd/'bvlc_googlenet/deploy.prototxt'),
+                                    str(pwd/'bvlc_googlenet/bvlc_googlenet.caffemodel'),
                                     mean=np.float32((103.939, 116.779, 123.68)),
                                     channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
