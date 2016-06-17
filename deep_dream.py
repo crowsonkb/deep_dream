@@ -99,8 +99,8 @@ class CNN:
 
                 for layer in layers.keys():
                     self.diff[layer] = 0
+                self.net.forward(end=next(iter(layers.keys())))
                 layers_list = list(layers.keys())
-                self.net.forward(end=layers_list[0])
                 for i, layer in enumerate(layers_list):
                     self.diff[layer] += self.data[layer] * layers[layer]
                     if i+1 == len(layers):
