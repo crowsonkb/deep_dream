@@ -2,6 +2,8 @@
 
 # pylint: disable=invalid-name
 
+from collections import OrderedDict
+
 import caffe
 import numpy as np
 from PIL import Image
@@ -68,7 +70,8 @@ class CNN:
     def _deprocess(self, img):
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
 
-    def _grad_tiled(self, end, progress=False, max_tile_size=512):
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
+        # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
                 self.progress_bar = tqdm(
@@ -88,9 +91,18 @@ class CNN:
                 self.net.blobs[self.start].reshape(1, 3, th, tw)
                 sy, sx = h//ny*y, w//nx*x
                 self.data[self.start] = self.img[:, sy:sy+th, sx:sx+tw]
-                self.net.forward(end=end)
-                self.diff[end] = self.data[end]
-                self.net.backward(start=end)
+
+                for layer in layers.keys():
+                    self.diff[layer] = 0
+                layers_list = list(layers.keys())
+                self.net.forward(end=layers_list[0])
+                for i, layer in enumerate(layers_list):
+                    self.diff[layer] += self.data[layer] * layers[layer]
+                    if i+1 == len(layers):
+                        self.net.backward(start=layer)
+                    else:
+                        self.net.backward(start=layer, end=layers_list[i+1])
+
                 g[:, sy:sy+th, sx:sx+tw] = self.diff[self.start]
 
                 if progress:
@@ -122,12 +134,12 @@ class CNN:
         """Returns a list of layer names, suitable for the 'end' argument of dream()."""
         return self.net.layers()
 
-    def dream(self, input_img, end, progress=True, **kwargs):
+    def dream(self, input_img, layers, progress=True, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
             input_img: The image to process (PIL images or Numpy arrays are accepted)
-            end (str): The layer to use as an objective function for gradient ascent.
+            layers (dict): The layers/weights to use as an objective function for gradient ascent.
             progress (Optional[bool]): Display a progress bar while computing.
             scale (Optional[int]): The number of scales to process.
             per_octave (Optional[int]): Determines the difference between each scale; for instance,
@@ -144,14 +156,24 @@ class CNN:
         Returns:
             The processed image, as a PIL image.
         """
+        if isinstance(layers, str):
+            layers = [layers]
+        if isinstance(layers, list):
+            layers = {layer: 1 for layer in layers}
+        _layers = OrderedDict()
+        for layer in reversed(self.net.blobs.keys()):
+            if layer in layers:
+                _layers[layer] = layers[layer]
+
         for blob in self.net.blobs:
             self.diff[blob] = 0
+
         input_arr = self._preprocess(np.float32(input_img))
         np.random.seed(0)
         self.total_px = 0
         self.progress_bar = None
         try:
-            detail = self._octave_detail(input_arr, end=end, progress=progress, **kwargs)
+            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
