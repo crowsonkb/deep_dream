@@ -114,7 +114,8 @@ class CNN:
                     self.progress_bar.update(th*tw)
         return g
 
-    def _step(self, n=1, step_size=1.5, jitter=32, **kwargs):
+    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, **kwargs):
+        np.random.seed(self.img.size + seed)
         for _ in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
@@ -179,7 +180,6 @@ class CNN:
             self.diff[blob] = 0
 
         input_arr = self._preprocess(np.float32(input_img))
-        np.random.seed(0)
         self.total_px = 0
         self.progress_bar = None
         try:
