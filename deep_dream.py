@@ -80,7 +80,7 @@ class CNN:
         if progress:
             if not self.progress_bar:
                 self.progress_bar = tqdm(
-                    total=self.total_px, unit='pix', unit_scale=True, ncols=80, smoothing=0)
+                    total=self.total_px, unit='pix', unit_scale=True, ncols=80, smoothing=0.1)
 
         h, w = self.img.shape[1:]  # Height and width of input image
         ny, nx = (h-1)//max_tile_size+1, (w-1)//max_tile_size+1  # Number of tiles per dimension
