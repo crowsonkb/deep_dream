@@ -147,7 +147,12 @@ class CNN:
 
     def layers(self):
         """Returns a list of layer names, suitable for the 'end' argument of dream()."""
-        return self.net.layers()
+        layers = []
+        for i, layer in enumerate(self.net.blobs.keys()):
+            if i == 0 or layer.partition('_split_')[1]:
+                continue
+            layers.append(layer)
+        return layers
 
     def dream(self, input_img, layers, progress=True, return_ndarray=False, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
