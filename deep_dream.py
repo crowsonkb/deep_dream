@@ -13,6 +13,8 @@ from tqdm import tqdm
 os.environ['GLOG_minloglevel'] = '1'
 import caffe  # pylint: disable=wrong-import-position
 
+EPS = np.finfo(np.float32).eps
+
 
 def to_image(arr):
     """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image."""
@@ -47,6 +49,14 @@ class _LayerIndexer:
     def __setitem__(self, key, value):
         getattr(self.net.blobs[key], self.attr)[0] = value
 
+
+class _ChannelVecIndexer:
+    def __init__(self, net):
+        self.net = net
+
+    def __getitem__(self, key):
+        return np.zeros((self.net.blobs[key].data.shape[1], 1, 1), dtype=np.float32)
+
 CNNData = namedtuple('CNNData', 'deploy model mean')
 _BASE_DIR = Path(__file__).parent
 GOOGLENET_BVLC = CNNData(
@@ -78,6 +88,7 @@ class CNN:
                                     channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
+        self.vec = _ChannelVecIndexer(self.net)
         self.img = np.zeros_like(self.data[self.start])
         self.total_px = 0
         self.progress_bar = None
@@ -138,7 +149,7 @@ class CNN:
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
-            self.img += step_size * g / np.median(np.abs(g))
+            self.img += step_size * g / (np.median(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
     def _octave_detail(self, base, scale=4, n=10, per_octave=2, **kwargs):
