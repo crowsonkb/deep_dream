@@ -162,7 +162,7 @@ class CNN:
         detail = np.zeros_like(base, dtype=np.float32)
         self.total_px += base.shape[1] * base.shape[2] * n
         if scale != 1:
-            hf, wf = np.int32(np.ceil(np.array(base.shape)[-2:]/factor))
+            hf, wf = np.int32(np.round(np.array(base.shape)[-2:]/factor))
             smaller_base = _resize(base, (hf, wf))
             smaller_detail = self._octave_detail(smaller_base, scale-1, n, per_octave, **kwargs)
             detail = _resize(smaller_detail, base.shape[-2:])
