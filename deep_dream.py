@@ -154,7 +154,7 @@ class CNN:
             self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
-    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=None, **kwargs):
+    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=SOFTEN, **kwargs):
         if base.shape[1] < 32 or base.shape[2] < 32:
             raise ShapeError(base.shape, scale)
         factor = 2**(1/per_octave)
@@ -224,8 +224,7 @@ class CNN:
         self.total_px = 0
         self.progress_bar = None
         try:
-            detail = self._octave_detail(
-                input_arr, layers=_layers, progress=progress, kernel=SOFTEN, **kwargs)
+            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
