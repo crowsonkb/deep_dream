@@ -8,12 +8,14 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
 from tqdm import tqdm
 
 os.environ['GLOG_minloglevel'] = '1'
 import caffe  # pylint: disable=wrong-import-position
 
 EPS = np.finfo(np.float32).eps
+SOFTEN = np.float32([[[1, 2, 1], [2, 20, 2], [1, 2, 1]]])/32
 
 
 def to_image(arr):
@@ -152,7 +154,7 @@ class CNN:
             self.img += step_size * g / (np.median(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
-    def _octave_detail(self, base, scale=4, n=10, per_octave=2, **kwargs):
+    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=None, **kwargs):
         if base.shape[1] < 32 or base.shape[2] < 32:
             raise ShapeError(base.shape, scale)
         factor = 2**(1/per_octave)
@@ -165,7 +167,10 @@ class CNN:
             detail = _resize(smaller_detail, base.shape[-2:])
         self.img = base + detail
         self._step(n, **kwargs)
-        return self.img - base
+        detail = self.img - base
+        if kernel is not None:
+            detail = ndimage.convolve(detail, kernel)
+        return detail
 
     def layers(self):
         """Returns a list of layer names, suitable for the 'end' argument of dream()."""
@@ -219,7 +224,8 @@ class CNN:
         self.total_px = 0
         self.progress_bar = None
         try:
-            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
+            detail = self._octave_detail(
+                input_arr, layers=_layers, progress=progress, kernel=SOFTEN, **kwargs)
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
