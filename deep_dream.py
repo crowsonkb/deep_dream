@@ -31,6 +31,12 @@ def _resize(arr, size, method=Image.BICUBIC):
     return np.stack([np.array(img) for img in imgs_resized])
 
 
+class ShapeError(Exception):
+    """Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe."""
+    def __str__(self):
+        return 'bad shape %s at scale=%d' % self.args
+
+
 class _LayerIndexer:
     def __init__(self, net, attr):
         self.net, self.attr = net, attr
@@ -133,6 +139,8 @@ class CNN:
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
     def _octave_detail(self, base, scale=4, n=10, per_octave=2, **kwargs):
+        if base.shape[1] < 32 or base.shape[2] < 32:
+            raise ShapeError(base.shape, scale)
         factor = 2**(1/per_octave)
         detail = np.zeros_like(base, dtype=np.float32)
         self.total_px += base.shape[1] * base.shape[2] * n
