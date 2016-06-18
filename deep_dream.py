@@ -151,7 +151,7 @@ class CNN:
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
-            self.img += step_size * g / (np.median(np.abs(g)) + EPS)
+            self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
     def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=None, **kwargs):
