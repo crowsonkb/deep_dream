@@ -48,16 +48,19 @@ class _LayerIndexer:
         getattr(self.net.blobs[key], self.attr)[0] = value
 
 CNNData = namedtuple('CNNData', 'deploy model mean')
-
 _BASE_DIR = Path(__file__).parent
-_GDIR1 = _BASE_DIR/'bvlc_googlenet'
-BVLC_GOOGLENET = CNNData(_GDIR1/'deploy.prototxt',
-                         _GDIR1/'bvlc_googlenet.caffemodel',
-                         (104, 117, 123))
-_GDIR2 = _BASE_DIR/'googlenet_places205'
-GOOGLENET_PLACES = CNNData(_GDIR2/'deploy_places205.prototxt',
-                           _GDIR2/'googlenet_places205_train_iter_2400000.caffemodel',
-                           (104, 117, 123))  # TODO: find the actual mean of the MIT Places dataset
+GOOGLENET_BVLC = CNNData(
+    _BASE_DIR/'bvlc_googlenet/deploy.prototxt',
+    _BASE_DIR/'bvlc_googlenet/bvlc_googlenet.caffemodel',
+    (104, 117, 123))
+GOOGLENET_PLACES205 = CNNData(
+    _BASE_DIR/'googlenet_places205/deploy_places205.prototxt',
+    _BASE_DIR/'googlenet_places205/googlenet_places205_train_iter_2400000.caffemodel',
+    (104.051, 112.514, 116.676))  # TODO: find the actual Places205 mean
+GOOGLENET_PLACES365 = CNNData(
+    _BASE_DIR/'googlenet_places365/deploy_googlenet_places365.prototxt',
+    _BASE_DIR/'googlenet_places365/googlenet_places365.caffemodel',
+    (104.051, 112.514, 116.676))
 
 
 class CNN:
