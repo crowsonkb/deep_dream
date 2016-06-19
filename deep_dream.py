@@ -113,42 +113,19 @@ class CNN:
     def _deprocess(self, img):
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
 
-    def prob(self, input_img, max_tile_size=512):
-        """Classifies the input image and returns a probability distribution over possible classes.
-
-        Args:
-            input_img: The image to process (PIL images or Numpy arrays are accepted).
-            max_tile_size: Does not allow the image dimension to exceed this.
-
-        Returns:
-            An ndarray containing a probability distribution over categories."""
+    def _get_features(self, input_img, layers, max_tile_size=512):
         input_arr = self._preprocess(np.float32(input_img))
         h = min(max_tile_size, input_arr.shape[1])
         w = min(max_tile_size, input_arr.shape[2])
-        if input_arr.shape[1] > max_tile_size or input_arr.shape[2] > max_tile_size:
+        if max(*input_arr.shape[1:]) > max_tile_size:
             input_arr = _resize(input_arr, (h, w))
         self.net.blobs[self.start].reshape(1, 3, h, w)
         self.data[self.start] = input_arr
         end = self.layers()[-1]
         self.net.forward(end=end)
-        return self.data[end].copy()
+        return {layer: self.data[layer].copy() for layer in layers}
 
-    def classify(self, input_img, n=1, **kwargs):
-        """Classifies the input image and returns the n most probable categories.
-
-        Args:
-            input_img: The image to process (PIL images or Numpy arrays are accepted).
-            n: The n most probable categories to return.
-            max_tile_size: Does not allow the image dimension to exceed this.
-
-        Returns:
-            A list containing the n most probable categories."""
-        indices = self.prob(input_img, **kwargs).argsort()[::-1][:n]
-        if self.categories is None:
-            return indices
-        return [self.categories[i] for i in indices]
-
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
+    def _grad_tiled(self, weights, progress=False, max_tile_size=512):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -170,13 +147,13 @@ class CNN:
                 sy, sx = h//ny*y, w//nx*x
                 self.data[self.start] = self.img[:, sy:sy+th, sx:sx+tw]
 
-                for layer in layers.keys():
+                for layer in weights.keys():
                     self.diff[layer] = 0
-                self.net.forward(end=next(iter(layers.keys())))
-                layers_list = list(layers.keys())
+                self.net.forward(end=next(iter(weights.keys())))
+                layers_list = list(weights.keys())
                 for i, layer in enumerate(layers_list):
-                    self.diff[layer] += self.data[layer] * layers[layer]
-                    if i+1 == len(layers):
+                    self.diff[layer] += self.data[layer] * weights[layer]
+                    if i+1 == len(weights):
                         self.net.backward(start=layer)
                     else:
                         self.net.backward(start=layer, end=layers_list[i+1])
@@ -223,12 +200,29 @@ class CNN:
             layers.append(layer)
         return layers
 
-    def dream(self, input_img, layers, progress=True, return_ndarray=False, **kwargs):
+    def classify(self, input_img, n=1, **kwargs):
+        """Classifies the input image and returns the n most probable categories.
+
+        Args:
+            input_img: The image to process (PIL images or Numpy arrays are accepted).
+            n: The n most probable categories to return.
+            max_tile_size: Does not allow the image dimension to exceed this.
+
+        Returns:
+            A list containing the n most probable categories."""
+        prob = self._get_features(input_img, ['prob'], **kwargs)['prob']
+        indices = prob.argsort()[::-1][:n]
+        if self.categories is None:
+            return indices
+        return [(prob[i], self.categories[i]) for i in indices]
+
+    def dream(self, input_img, weights, progress=True, return_ndarray=False, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
             input_img: The image to process (PIL images or Numpy arrays are accepted)
-            layers (dict): The layers/weights to use as an objective function for gradient ascent.
+            weights (dict): The layer/feature weights to use as an objective function for gradient
+                ascent.
             progress (Optional[bool]): Display a progress bar while computing.
             scale (Optional[int]): The number of scales to process.
             per_octave (Optional[int]): Determines the difference between each scale; for instance,
@@ -250,14 +244,14 @@ class CNN:
             greater than 255. Both the PIL image and the ndarray are valid inputs to dream().
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
-        if isinstance(layers, str):
-            layers = [layers]
-        if isinstance(layers, list):
-            layers = {layer: 1 for layer in layers}
-        _layers = OrderedDict()
+        if isinstance(weights, str):
+            weights = [weights]
+        if isinstance(weights, list):
+            weights = {layer: 1 for layer in weights}
+        _weights = OrderedDict()
         for layer in reversed(self.net.blobs.keys()):
-            if layer in layers:
-                _layers[layer] = layers[layer]
+            if layer in weights:
+                _weights[layer] = weights[layer]
 
         for blob in self.net.blobs:
             self.diff[blob] = 0
@@ -266,7 +260,7 @@ class CNN:
         self.total_px = 0
         self.progress_bar = None
         try:
-            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
+            detail = self._octave_detail(input_arr, weights=_weights, progress=progress, **kwargs)
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
