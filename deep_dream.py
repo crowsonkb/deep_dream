@@ -220,7 +220,7 @@ class CNN:
         indices = prob.argsort()[::-1][:n]
         return [(prob[i], self.categories[i]) for i in indices]
 
-    def dream(self, input_img, layers, progress=True, return_ndarray=False, **kwargs):
+    def dream(self, input_img, layers, progress=True, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
@@ -241,11 +241,8 @@ class CNN:
                 should be lowered.
 
         Returns:
-            The processed image, as a PIL image.
-
-            If ndarray is true, returns the unclipped processed image as a float32 ndarray which
-            has a valid range of 0-255 but which may contain components that are less than 0 or
-            greater than 255. Both the PIL image and the ndarray are valid inputs to dream().
+            The unclipped processed image as a float32 ndarray which has a valid range of 0-255 but
+            which may contain components that are less than 0 or greater than 255.
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
         if isinstance(layers, str):
@@ -268,7 +265,4 @@ class CNN:
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
-        out = self._deprocess(detail + input_arr)
-        if return_ndarray:
-            return out
-        return to_image(out)
+        return self._deprocess(detail + input_arr)
