@@ -113,6 +113,15 @@ class CNN:
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
 
     def get_features(self, input_img, layers, max_tile_size=512):
+        """Retrieve feature maps from the classification (forward) phase of operation.
+
+        Example:
+            cnn.get_features(img, ['prob'])['prob'] classifies 'img' and returns the predicted
+            probability distribution over the network's categories.
+
+        Returns:
+            A dict which maps each layer in layers to a retrieved feature map.
+        """
         input_arr = self._preprocess(np.float32(input_img))
         h = min(max_tile_size, input_arr.shape[1])
         w = min(max_tile_size, input_arr.shape[2])
