@@ -112,7 +112,7 @@ class CNN:
     def _deprocess(self, img):
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
 
-    def _get_features(self, input_img, layers, max_tile_size=512):
+    def get_features(self, input_img, layers, max_tile_size=512):
         input_arr = self._preprocess(np.float32(input_img))
         h = min(max_tile_size, input_arr.shape[1])
         w = min(max_tile_size, input_arr.shape[2])
@@ -124,7 +124,7 @@ class CNN:
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
 
-    def _grad_tiled(self, weights, progress=False, max_tile_size=512):
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512, guided=False):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -146,13 +146,20 @@ class CNN:
                 sy, sx = h//ny*y, w//nx*x
                 self.data['data'] = self.img[:, sy:sy+th, sx:sx+tw]
 
-                for layer in weights.keys():
+                for layer in layers.keys():
                     self.diff[layer] = 0
-                self.net.forward(end=next(iter(weights.keys())))
-                layers_list = list(weights.keys())
+                self.net.forward(end=next(iter(layers.keys())))
+                layers_list = list(layers.keys())
                 for i, layer in enumerate(layers_list):
-                    self.diff[layer] += self.data[layer] * weights[layer]
-                    if i+1 == len(weights):
+                    if not guided:
+                        self.diff[layer] += self.data[layer] * layers[layer]
+                    else:
+                        ch = layers[layer].shape[0]
+                        guide = layers[layer].reshape(ch, -1)
+                        a = self.data[layer].reshape(ch, -1).T @ guide
+                        self.diff[layer].reshape(ch, -1)[:] += guide[:, a.argmax(1)]
+
+                    if i+1 == len(layers):
                         self.net.backward(start=layer)
                     else:
                         self.net.backward(start=layer, end=layers_list[i+1])
@@ -209,16 +216,16 @@ class CNN:
 
         Returns:
             A list containing the n most probable categories."""
-        prob = self._get_features(input_img, ['prob'], **kwargs)['prob']
+        prob = self.get_features(input_img, ['prob'], **kwargs)['prob']
         indices = prob.argsort()[::-1][:n]
         return [(prob[i], self.categories[i]) for i in indices]
 
-    def dream(self, input_img, weights, progress=True, return_ndarray=False, **kwargs):
+    def dream(self, input_img, layers, progress=True, return_ndarray=False, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
             input_img: The image to process (PIL images or Numpy arrays are accepted)
-            weights (dict): The layer/feature weights to use as an objective function for gradient
+            layers (dict): The layer/feature weights to use in the objective function for gradient
                 ascent.
             progress (Optional[bool]): Display a progress bar while computing.
             scale (Optional[int]): The number of scales to process.
@@ -241,14 +248,14 @@ class CNN:
             greater than 255. Both the PIL image and the ndarray are valid inputs to dream().
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
-        if isinstance(weights, str):
-            weights = [weights]
-        if isinstance(weights, list):
-            weights = {layer: 1 for layer in weights}
-        _weights = OrderedDict()
+        if isinstance(layers, str):
+            layers = [layers]
+        if isinstance(layers, list):
+            layers = {layer: 1 for layer in layers}
+        _layers = OrderedDict()
         for layer in reversed(self.net.blobs.keys()):
-            if layer in weights:
-                _weights[layer] = weights[layer]
+            if layer in layers:
+                _layers[layer] = layers[layer]
 
         for blob in self.net.blobs:
             self.diff[blob] = 0
@@ -257,7 +264,7 @@ class CNN:
         self.total_px = 0
         self.progress_bar = None
         try:
-            detail = self._octave_detail(input_arr, weights=_weights, progress=progress, **kwargs)
+            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
