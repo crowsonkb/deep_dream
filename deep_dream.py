@@ -123,9 +123,9 @@ class CNN:
         Returns:
             An ndarray containing a probability distribution over categories."""
         input_arr = self._preprocess(np.float32(input_img))
+        h = min(max_tile_size, input_arr.shape[1])
+        w = min(max_tile_size, input_arr.shape[2])
         if input_arr.shape[1] > max_tile_size or input_arr.shape[2] > max_tile_size:
-            h = min(max_tile_size, input_arr.shape[1])
-            w = min(max_tile_size, input_arr.shape[2])
             input_arr = _resize(input_arr, (h, w))
         self.net.blobs[self.start].reshape(1, 3, h, w)
         self.data[self.start] = input_arr
