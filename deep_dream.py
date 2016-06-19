@@ -89,16 +89,15 @@ class CNN:
             gpu (Optional[int]): If present, Caffe will use this GPU device number. On a typical
                 system with one GPU, it should be 0. If not present Caffe will use the CPU.
         """
-        self.start = 'data'
         self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
                                     mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
-        self.categories = None
-        if cnndata.categories is not None:
-            self.categories = open(str(cnndata.categories)).read().splitlines()
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
         self.vec = _ChannelVecIndexer(self.net)
-        self.img = np.zeros_like(self.data[self.start])
+        self.categories = [str(i) for i in range(self.data['prob'].size)]
+        if cnndata.categories is not None:
+            self.categories = open(str(cnndata.categories)).read().splitlines()
+        self.img = np.zeros_like(self.data['data'])
         self.total_px = 0
         self.progress_bar = None
         if gpu is not None:
@@ -119,8 +118,8 @@ class CNN:
         w = min(max_tile_size, input_arr.shape[2])
         if max(*input_arr.shape[1:]) > max_tile_size:
             input_arr = _resize(input_arr, (h, w))
-        self.net.blobs[self.start].reshape(1, 3, h, w)
-        self.data[self.start] = input_arr
+        self.net.blobs['data'].reshape(1, 3, h, w)
+        self.data['data'] = input_arr
         end = self.layers()[-1]
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
@@ -143,9 +142,9 @@ class CNN:
                 tw = w//nx
                 if x == nx-1:
                     tw += w - tw*nx
-                self.net.blobs[self.start].reshape(1, 3, th, tw)
+                self.net.blobs['data'].reshape(1, 3, th, tw)
                 sy, sx = h//ny*y, w//nx*x
-                self.data[self.start] = self.img[:, sy:sy+th, sx:sx+tw]
+                self.data['data'] = self.img[:, sy:sy+th, sx:sx+tw]
 
                 for layer in weights.keys():
                     self.diff[layer] = 0
@@ -158,7 +157,7 @@ class CNN:
                     else:
                         self.net.backward(start=layer, end=layers_list[i+1])
 
-                g[:, sy:sy+th, sx:sx+tw] = self.diff[self.start]
+                g[:, sy:sy+th, sx:sx+tw] = self.diff['data']
 
                 if progress:
                     self.progress_bar.update(th*tw)
@@ -212,8 +211,6 @@ class CNN:
             A list containing the n most probable categories."""
         prob = self._get_features(input_img, ['prob'], **kwargs)['prob']
         indices = prob.argsort()[::-1][:n]
-        if self.categories is None:
-            return indices
         return [(prob[i], self.categories[i]) for i in indices]
 
     def dream(self, input_img, weights, progress=True, return_ndarray=False, **kwargs):
