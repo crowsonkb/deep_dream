@@ -17,13 +17,15 @@ import caffe  # pylint: disable=wrong-import-position
 EPS = np.finfo(np.float32).eps
 SOFTEN = np.float32([[[1, 2, 1], [2, 20, 2], [1, 2, 1]]])/32
 
-CNNData = namedtuple('CNNData', 'deploy model mean')
+CNNData = namedtuple('CNNData', 'deploy model mean categories')
+CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
 
 _BASE_DIR = Path(__file__).parent
 GOOGLENET_BVLC = CNNData(
     _BASE_DIR/'bvlc_googlenet/deploy.prototxt',
     _BASE_DIR/'bvlc_googlenet/bvlc_googlenet.caffemodel',
-    (104, 117, 123))
+    (104, 117, 123),
+    categories=_BASE_DIR/'bvlc_googlenet/categories.txt')
 GOOGLENET_PLACES205 = CNNData(
     _BASE_DIR/'googlenet_places205/deploy_places205.prototxt',
     _BASE_DIR/'googlenet_places205/googlenet_places205_train_iter_2400000.caffemodel',
@@ -31,7 +33,8 @@ GOOGLENET_PLACES205 = CNNData(
 GOOGLENET_PLACES365 = CNNData(
     _BASE_DIR/'googlenet_places365/deploy_googlenet_places365.prototxt',
     _BASE_DIR/'googlenet_places365/googlenet_places365.caffemodel',
-    (104.051, 112.514, 116.676))
+    (104.051, 112.514, 116.676),
+    categories=_BASE_DIR/'googlenet_places365/categories_places365.txt')
 
 
 def to_image(arr):
@@ -79,7 +82,7 @@ class _ChannelVecIndexer:
 class CNN:
     """Represents an instance of a Caffe convolutional neural network."""
 
-    def __init__(self, data, gpu=None):
+    def __init__(self, cnndata, gpu=None):
         """Initializes a CNN.
 
         Args:
@@ -87,8 +90,11 @@ class CNN:
                 system with one GPU, it should be 0. If not present Caffe will use the CPU.
         """
         self.start = 'data'
-        self.net = caffe.Classifier(str(data.deploy), str(data.model), mean=np.float32(data.mean),
-                                    channel_swap=(2, 1, 0))
+        self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
+                                    mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
+        self.categories = None
+        if cnndata.categories is not None:
+            self.categories = open(str(cnndata.categories)).read().splitlines()
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
         self.vec = _ChannelVecIndexer(self.net)
@@ -106,6 +112,41 @@ class CNN:
 
     def _deprocess(self, img):
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
+
+    def prob(self, input_img, max_tile_size=512):
+        """Classifies the input image and returns a probability distribution over possible classes.
+
+        Args:
+            input_img: The image to process (PIL images or Numpy arrays are accepted).
+            max_tile_size: Does not allow the image dimension to exceed this.
+
+        Returns:
+            An ndarray containing a probability distribution over categories."""
+        input_arr = self._preprocess(np.float32(input_img))
+        if input_arr.shape[1] > max_tile_size or input_arr.shape[2] > max_tile_size:
+            h = min(max_tile_size, input_arr.shape[1])
+            w = min(max_tile_size, input_arr.shape[2])
+            input_arr = _resize(input_arr, (h, w))
+        self.net.blobs[self.start].reshape(1, 3, h, w)
+        self.data[self.start] = input_arr
+        end = self.layers()[-1]
+        self.net.forward(end=end)
+        return self.data[end].copy()
+
+    def classify(self, input_img, n=1, **kwargs):
+        """Classifies the input image and returns the n most probable categories.
+
+        Args:
+            input_img: The image to process (PIL images or Numpy arrays are accepted).
+            n: The n most probable categories to return.
+            max_tile_size: Does not allow the image dimension to exceed this.
+
+        Returns:
+            A list containing the n most probable categories."""
+        indices = self.prob(input_img, **kwargs).argsort()[::-1][:n]
+        if self.categories is None:
+            return indices
+        return [self.categories[i] for i in indices]
 
     def _grad_tiled(self, layers, progress=False, max_tile_size=512):
         # pylint: disable=too-many-locals
