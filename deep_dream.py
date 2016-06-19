@@ -179,7 +179,7 @@ class CNN:
             self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
-    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=SOFTEN, **kwargs):
+    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=None, **kwargs):
         if base.shape[1] < 32 or base.shape[2] < 32:
             raise ShapeError(base.shape, scale)
         factor = 2**(1/per_octave)
