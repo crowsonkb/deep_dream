@@ -207,7 +207,7 @@ class CNN:
         return detail
 
     def layers(self):
-        """Returns a list of layer names, suitable for the 'end' argument of dream()."""
+        """Returns a list of layer names, suitable for the 'layers' argument of dream()."""
         layers = []
         for i, layer in enumerate(self.net.blobs.keys()):
             if i == 0 or layer.partition('_split_')[1]:
