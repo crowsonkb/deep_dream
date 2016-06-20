@@ -6,21 +6,35 @@ An implementation of the Deep Dream image processing algorithm which is able to 
 Example
 -------
 
-![Example input](example_in.jpg)
+```
+import deep_dream as dd
+from PIL import Image
 
-100 iterations, step size 0.5:
+cnn = dd.CNN(dd.GOOGLENET_PLACES365, gpu=0)
+img = Image.open('kodim/img0022.jpg').resize((768, 512), Image.LANCZOS)
+```
 
-![Example output 1](example_med.jpg)
+<img src="example_in.jpg" width="384" height="256">
 
-100 iterations, step size 1.0:
+```
+out = cnn.dream(img, 'inception_4a/output', scale=12, per_octave=4, n=8, step_size=0.5)
+dd.to_image(out).save('example_med.jpg', quality=85)
+```
 
-![Example output 2](example_out.jpg)
+<img src="example_med.jpg" width="384" height="256">
+
+```
+out = cnn.dream(img, 'inception_4a/output', scale=12, per_octave=4, n=12, step_size=1.0)
+dd.to_image(out).save('example_out.jpg', quality=85)
+```
+
+<img src="example_out.jpg" width="384" height="256">
 
 Requirements
 ------------
 
 - Python 3.5.
-- [Caffe](http://caffe.berkeleyvision.org), compiled to use Python 3.5.
+- [Caffe](http://caffe.berkeleyvision.org), compiled to use Python 3.5. I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
 - [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
 - Pre-trained Caffe models (see Models section).
 
