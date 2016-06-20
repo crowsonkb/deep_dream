@@ -59,7 +59,7 @@ def _resize(arr, size, method=Image.BICUBIC):
 class ShapeError(Exception):
     """Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe."""
     def __str__(self):
-        return 'bad shape %s at scale=%d' % self.args
+        return 'bad shape %s' % self.args
 
 
 class _LayerIndexer:
@@ -174,17 +174,20 @@ class CNN:
             self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
-    def _octave_detail(self, base, scale=4, n=10, per_octave=2, kernel=None, **kwargs):
-        if base.shape[1] < 32 or base.shape[2] < 32:
-            raise ShapeError(base.shape, scale)
+    def _octave_detail(self, base, scale=4, min_size=32, n=10, per_octave=2, kernel=None,
+                       **kwargs):
+        if min(base.shape[1:]) < 32:
+            raise ShapeError(base.shape)
         factor = 2**(1/per_octave)
         detail = np.zeros_like(base, dtype=np.float32)
         self.total_px += base.shape[1] * base.shape[2] * n
         if scale != 1:
             hf, wf = np.int32(np.round(np.array(base.shape)[-2:]/factor))
-            smaller_base = _resize(base, (hf, wf))
-            smaller_detail = self._octave_detail(smaller_base, scale-1, n, per_octave, **kwargs)
-            detail = _resize(smaller_detail, base.shape[-2:])
+            if min(hf, wf) >= min_size:
+                smaller_base = _resize(base, (hf, wf))
+                smaller_detail = self._octave_detail(
+                    smaller_base, scale-1, min_size, n, per_octave, **kwargs)
+                detail = _resize(smaller_detail, base.shape[-2:])
         self.img = base + detail
         self._step(n, **kwargs)
         detail = self.img - base
@@ -225,6 +228,7 @@ class CNN:
                 ascent.
             progress (Optional[bool]): Display a progress bar while computing.
             scale (Optional[int]): The number of scales to process.
+            min_size (Optional[int]): Don't permit the small edge of the image to go below this.
             per_octave (Optional[int]): Determines the difference between each scale; for instance,
                 the default of 2 means that a 1000x1000 input image will get processed as 707x707
                 and 500x500.
