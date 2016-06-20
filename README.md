@@ -52,7 +52,7 @@ Guide:
 Combined output:  
 <img src="example2_out.jpg" width="512" height="341">
 
-Gradient ascent was performed using layers inception_(3a-b, 4a-e, 5a-b)/output. This is a reasonable set of layers for dream_guided() to work well. Note that the input and the guide do not have to be the same size; the output will be the same size as the input.
+Gradient ascent was performed using layers `inception_(3a-b, 4a-e, 5a-b)/output`. This is a reasonable set of layers for `dream_guided()` to work well. Note that the input and the guide do not have to be the same size; the output will be the same size as the input.
 
 Models
 ------
