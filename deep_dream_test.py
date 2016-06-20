@@ -20,9 +20,15 @@ def main():
     pwd = Path(__file__).parent
     cnn = dd.CNN(dd.GOOGLENET_BVLC, gpu=args.gpu)
     input_img = Image.open(str(pwd/'kodim/img0022.jpg')).resize((768, 512), Image.LANCZOS)
+    print('Input image classes:')
+    for c in cnn.classify(input_img, 5):
+        print('%.3f %s' % c)
     cnn.dream(input_img, 'inception_3a/3x3', scale=4, n=1, max_tile_size=args.max_tile_size)
     t1 = time.perf_counter()
     img = cnn.dream(input_img, 'inception_3a/3x3', scale=4, n=10, max_tile_size=args.max_tile_size)
+    print('Input image classes:')
+    for c in cnn.classify(img, 5):
+        print('%.3f %s' % c)
     t2 = time.perf_counter()
     print('Time taken: %.3f s' % (t2-t1))
     if args.save:
