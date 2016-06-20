@@ -273,6 +273,10 @@ class CNN:
         return self._deprocess(detail + input_arr)
 
     def dream_guided(self, input_img, guide_img, layers, **kwargs):
+        """Performs guided gradient ascent on input_img, weighted by the feature map channel sums
+        of guide_img. This algorithm works best using a relatively large number of layers, such as
+        (for googlenet) anything matching the regular expression 'inception_../output'. The
+        relative weights of the layers are determined automatically."""
         if isinstance(layers, str):
             layers = [layers]
         guide_features = self.get_features(guide_img, layers)
