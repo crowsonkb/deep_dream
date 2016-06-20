@@ -5,6 +5,7 @@
 from collections import namedtuple, OrderedDict
 import os
 from pathlib import Path
+import re
 
 import numpy as np
 from PIL import Image
@@ -133,7 +134,7 @@ class CNN:
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
 
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512, guided=False):
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -160,14 +161,7 @@ class CNN:
                 self.net.forward(end=next(iter(layers.keys())))
                 layers_list = list(layers.keys())
                 for i, layer in enumerate(layers_list):
-                    if not guided:
-                        self.diff[layer] += self.data[layer] * layers[layer]
-                    else:
-                        ch = layers[layer].shape[0]
-                        guide = layers[layer].reshape(ch, -1)
-                        a = self.data[layer].reshape(ch, -1).T @ guide
-                        self.diff[layer].reshape(ch, -1)[:] += guide[:, a.argmax(1)]
-
+                    self.diff[layer] += self.data[layer] * layers[layer]
                     if i+1 == len(layers):
                         self.net.backward(start=layer)
                     else:
@@ -206,13 +200,14 @@ class CNN:
             detail = ndimage.convolve(detail, kernel)
         return detail
 
-    def layers(self):
-        """Returns a list of layer names, suitable for the 'layers' argument of dream()."""
+    def layers(self, pattern='.*'):
+        """Returns a list of layer names matching a regular expression."""
         layers = []
         for i, layer in enumerate(self.net.blobs.keys()):
             if i == 0 or layer.partition('_split_')[1]:
                 continue
-            layers.append(layer)
+            if re.fullmatch(pattern, layer):
+                layers.append(layer)
         return layers
 
     def classify(self, input_img, n=1, **kwargs):
@@ -275,3 +270,13 @@ class CNN:
             if self.progress_bar:
                 self.progress_bar.close()
         return self._deprocess(detail + input_arr)
+
+    def dream_guided(self, input_img, guide_img, layers, **kwargs):
+        if isinstance(layers, str):
+            layers = [layers]
+        guide_features = self.get_features(guide_img, layers)
+        weights = {}
+        for layer in layers:
+            v = guide_features[layer].sum(1).sum(1)[:, None, None]
+            weights[layer] = v/v.sum()**2
+        return self.dream(input_img, weights, **kwargs)
