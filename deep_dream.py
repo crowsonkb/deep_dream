@@ -73,14 +73,6 @@ class _LayerIndexer:
         getattr(self.net.blobs[key], self.attr)[0] = value
 
 
-class _ChannelVecIndexer:
-    def __init__(self, net):
-        self.net = net
-
-    def __getitem__(self, key):
-        return np.zeros((self.net.blobs[key].data.shape[1], 1, 1), dtype=np.float32)
-
-
 class CNN:
     """Represents an instance of a Caffe convolutional neural network."""
 
@@ -95,7 +87,6 @@ class CNN:
                                     mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
-        self.vec = _ChannelVecIndexer(self.net)
         self.categories = [str(i) for i in range(self.data['prob'].size)]
         if cnndata.categories is not None:
             self.categories = open(str(cnndata.categories)).read().splitlines()
