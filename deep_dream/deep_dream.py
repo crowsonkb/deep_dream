@@ -126,7 +126,7 @@ class CNN:
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
 
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512, auto_weight=True):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -153,7 +153,10 @@ class CNN:
                 self.net.forward(end=next(iter(layers.keys())))
                 layers_list = list(layers.keys())
                 for i, layer in enumerate(layers_list):
-                    self.diff[layer] += self.data[layer] * layers[layer]
+                    if auto_weight:
+                        self.diff[layer] += self.data[layer]*layers[layer]/self.data[layer].sum()
+                    else:
+                        self.diff[layer] += self.data[layer]*layers[layer]
                     if i+1 == len(layers):
                         self.net.backward(start=layer)
                     else:
@@ -279,4 +282,4 @@ class CNN:
         for layer in layers:
             v = guide_features[layer].sum(1).sum(1)[:, None, None]
             weights[layer] = v/v.sum()**2
-        return self.dream(input_img, weights, **kwargs)
+        return self.dream(input_img, weights, auto_weight=False, **kwargs)
