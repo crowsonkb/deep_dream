@@ -21,7 +21,7 @@ SOFTEN = np.float32([[[1, 2, 1], [2, 20, 2], [1, 2, 1]]])/32
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
 
-_BASE_DIR = Path(__file__).parent
+_BASE_DIR = Path(__file__).parent.parent
 GOOGLENET_BVLC = CNNData(
     _BASE_DIR/'bvlc_googlenet/deploy.prototxt',
     _BASE_DIR/'bvlc_googlenet/bvlc_googlenet.caffemodel',
