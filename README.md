@@ -3,6 +3,16 @@ deep_dream
 
 An implementation of the Deep Dream image processing algorithm which is able to process large (wallpaper-sized) images despite GPU or main memory limits.
 
+Requirements
+------------
+
+- Python 3.5.
+- [Caffe](http://caffe.berkeleyvision.org), compiled to use Python 3.5. I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
+- [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
+- Pre-trained Caffe models (see Models section).
+
+This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture).
+
 Example
 -------
 
@@ -30,15 +40,19 @@ dd.to_image(out).save('example_out.jpg', quality=85)
 
 <img src="example_out.jpg" width="384" height="256">
 
-Requirements
-------------
+CNN.dream_guided() example
+--------------------------
 
-- Python 3.5.
-- [Caffe](http://caffe.berkeleyvision.org), compiled to use Python 3.5. I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
-- [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
-- Pre-trained Caffe models (see Models section).
+Input:  
+<img src="example2_in.jpg" width="512" height="341">
 
-This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture).
+Guide:  
+<img src="example2_guide.jpg" width="512" height="341">
+
+Combined output:  
+<img src="example2_out.jpg" width="512" height="341">
+
+Gradient ascent was performed using layers inception_(3a-b, 4a-e, 5a-b)/output. This is a reasonable set of layers for dream_guided() to work well. Note that the input and the guide do not have to be the same size; the output will be the same size as the input.
 
 Models
 ------
