@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from flask import Flask, flash, redirect, render_template, request, session
+import numpy as np
 from PIL import Image
 
 BASE_DIR = Path(__file__).parent
@@ -40,7 +41,11 @@ def upload_image():
         flash('Allowed image types: %s.' % ', '.join(ALLOWED_EXTENSIONS))
         return redir
     filename = '%s.%s' % (os.urandom(8).hex(), extension)
+    filename_thumb = filename + '.thumb.jpg'
     input_file.save(str(INPUT_DIR/filename))
+    img = Image.open(str(INPUT_DIR/filename))
+    thumb_size = np.array(img.size) * 256 // max(256, *img.size)
+    img.resize(thumb_size, 1).save(str(INPUT_DIR/filename_thumb))
     session['input_image'] = filename
     flash('Image uploaded.')
     return redir
@@ -57,9 +62,14 @@ def render():
     except OSError:
         flash('Error reading your previously uploaded image. Try again?')
         return redir
-    output_filename = session['input_image'].rpartition('.')[0] + '.jpg'
+    output_filename = os.urandom(8).hex() + '.jpg'
     image = image.resize((256, 256), 1)
     image = image.save(str(OUTPUT_DIR/output_filename), quality=85)
     session['output_image'] = output_filename
     flash('Rendered image.')
     return redir
+
+
+@app.route('/input_thumb.jpg')
+def input_thumb():
+    return (INPUT_DIR/(session['input_image']+'.thumb.jpg')).read_bytes()

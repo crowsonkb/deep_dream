@@ -2,6 +2,9 @@
 {% block title %}TODO: Put a real title here{% endblock %}
 {% block content %}
     <h1>Test</h1>
+    {% if session.input_image %}
+    <img src="/input_thumb.jpg">
+    {% endif %}
     <form action="upload_image" method="post" enctype="multipart/form-data">
         <input type="file" name="file"><br><br>
         <input type="submit" value="Upload">
