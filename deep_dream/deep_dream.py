@@ -16,7 +16,6 @@ os.environ['GLOG_minloglevel'] = '1'
 import caffe  # pylint: disable=wrong-import-position
 
 EPS = np.finfo(np.float32).eps
-SOFTEN = np.float32([[[1, 2, 1], [2, 20, 2], [1, 2, 1]]])/32
 
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
@@ -168,17 +167,24 @@ class CNN:
                     self.progress_bar.update(th*tw)
         return g
 
-    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, **kwargs):
+    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smooth=0, **kwargs):
         np.random.seed(self.img.size + seed)
         for _ in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
-            self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
+            g /= np.mean(np.abs(g)) + EPS
+            if smooth:
+                kernel = np.float32([[[0, 1, 0], [1, -4, 1], [0, 1, 0]]])
+                g2 = ndimage.convolve(self.img, kernel)
+                g2 /= np.mean(np.abs(g2)) + EPS
+                g += g2 * smooth
+                self.img += step_size * g / np.mean(np.abs(g))
+            else:
+                self.img += step_size * g
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
-    def _octave_detail(self, base, scale=4, min_size=32, n=10, per_octave=2, kernel=None,
-                       **kwargs):
+    def _octave_detail(self, base, scale=4, min_size=32, n=10, per_octave=2, **kwargs):
         if min(base.shape[1:]) < 32:
             raise ShapeError(base.shape)
         factor = 2**(1/per_octave)
@@ -193,10 +199,7 @@ class CNN:
                 detail = _resize(smaller_detail, base.shape[-2:])
         self.img = base + detail
         self._step(n, **kwargs)
-        detail = self.img - base
-        if kernel is not None:
-            detail = ndimage.convolve(detail, kernel)
-        return detail
+        return self.img - base
 
     def layers(self, pattern='.*'):
         """Returns a list of layer names matching a regular expression."""
@@ -239,6 +242,8 @@ class CNN:
             step_size (Optional[float]): The strength of each individual gradient ascent step.
                 Specifically, each step will change the image's pixel values by a median of
                 step_size.
+            smooth (Optional[float]): The factor to smooth by at each gradient ascent step.
+                Try 0.1-0.25.
             max_tile_size (Optional[int]): Defaults to 512, suitable for a GPU with 2 GB RAM.
                 Higher values perform better; if Caffe runs out of GPU memory and crashes then it
                 should be lowered.
