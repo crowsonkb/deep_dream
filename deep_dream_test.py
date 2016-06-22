@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """Test/benchmark deep_dream.py."""
 
 import argparse
@@ -23,9 +25,9 @@ def main():
     print('Input image classes:')
     for c in cnn.classify(input_img, 5):
         print('%.3f %s' % c)
-    cnn.dream(input_img, 'inception_3a/3x3', scale=4, n=1, max_tile_size=args.max_tile_size)
+    cnn.dream(input_img, 'inception_3a/3x3', scales=4, n=1, max_tile_size=args.max_tile_size)
     t1 = time.perf_counter()
-    img = cnn.dream(input_img, 'inception_3a/3x3', scale=4, n=10, max_tile_size=args.max_tile_size)
+    img = cnn.dream(input_img, 'inception_3a/3x3', scales=4, n=10, max_tile_size=args.max_tile_size)
     print('Input image classes:')
     for c in cnn.classify(img, 5):
         print('%.3f %s' % c)
