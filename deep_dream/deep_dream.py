@@ -153,7 +153,8 @@ class CNN:
                 layers_list = list(layers.keys())
                 for i, layer in enumerate(layers_list):
                     if auto_weight:
-                        self.diff[layer] += self.data[layer]*layers[layer]/self.data[layer].sum()
+                        self.diff[layer] += \
+                            self.data[layer]*layers[layer]/np.abs(self.data[layer]).sum()
                     else:
                         self.diff[layer] += self.data[layer]*layers[layer]
                     if i+1 == len(layers):
@@ -179,7 +180,7 @@ class CNN:
                 g2 = ndimage.convolve(self.img, kernel)
                 g2 /= np.mean(np.abs(g2)) + EPS
                 g += g2 * smooth
-                self.img += step_size * g / np.mean(np.abs(g))
+                self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
             else:
                 self.img += step_size * g
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
