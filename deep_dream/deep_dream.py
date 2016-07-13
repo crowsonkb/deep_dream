@@ -1,19 +1,18 @@
 """Deep Dreaming using Caffe and Google's Inception convolutional neural network."""
 
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name, wrong-import-position
 
 from collections import namedtuple, OrderedDict
 import os
 from pathlib import Path
 import re
 
+os.environ['GLOG_minloglevel'] = '1'
+import caffe
 import numpy as np
 from PIL import Image
 from scipy import ndimage
 from tqdm import tqdm
-
-os.environ['GLOG_minloglevel'] = '1'
-import caffe  # pylint: disable=wrong-import-position
 
 EPS = np.finfo(np.float32).eps
 
