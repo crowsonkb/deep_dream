@@ -37,25 +37,29 @@ GOOGLENET_PLACES365 = CNNData(
     categories=_BASE_DIR/'googlenet_places365/categories_places365.txt')
 
 
-def save_as_exr(arr, filename, gamma=2.2, allow_negative=True):
-    """Saves a float32 ndarray to an (HDR) OpenEXR file.
+def save_as_hdr(arr, filename, gamma=2.2, allow_negative=True):
+    """Saves a float32 ndarray to a high dynamic range (OpenEXR) file.
 
     Args:
         arr (ndarray): The input array.
         filename (str | Path): The output filename.
         gamma (Optional[float]): The encoding gamma of arr.
-        allow_negative (Optional[bool]): Clip negative values to zero."""
-    import OpenEXR
+        allow_negative (Optional[bool]): Clip negative values to zero if false."""
     arr = arr.astype(np.float32)/255
     if not allow_negative:
         arr[arr < 0] = 0
     if gamma != 1:
         arr = np.sign(arr)*np.abs(arr)**gamma
-    exr = OpenEXR.OutputFile(str(filename), OpenEXR.Header(arr.shape[1], arr.shape[0]))
-    exr.writePixels({'R': arr[..., 0].tobytes(),
-                     'G': arr[..., 1].tobytes(),
-                     'B': arr[..., 2].tobytes()})
-
+    filename = str(filename)
+    extension = filename.rpartition('.')[2]
+    if extension == 'exr':
+        import OpenEXR
+        exr = OpenEXR.OutputFile(filename, OpenEXR.Header(arr.shape[1], arr.shape[0]))
+        exr.writePixels({'R': arr[..., 0].tobytes(),
+                         'G': arr[..., 1].tobytes(),
+                         'B': arr[..., 2].tobytes()})
+    else:
+        raise Exception('Unknown HDR file format.')
 
 def to_image(arr):
     """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image.
