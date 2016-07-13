@@ -207,14 +207,13 @@ class CNN:
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
+            self.img += step_size * g
             if smooth:
                 kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
                 g2 = ndimage.convolve(self.img, kernel)
                 g2 /= np.mean(np.abs(g2)) + EPS
                 g -= g2 * smooth
-                self.img += step_size * g / (np.mean(np.abs(g)) + EPS)
-            else:
-                self.img += step_size * g
+                self.img -= g2 * smooth
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
     def _octave_detail(self, base, scales=4, min_size=32, n=10, per_octave=2, **kwargs):
