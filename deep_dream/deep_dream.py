@@ -261,6 +261,17 @@ class CNN:
         indices = prob.argsort()[::-1][:n]
         return [(prob[i], self.categories[i]) for i in indices]
 
+    def prepare_layer_list(self, layers):
+        if isinstance(layers, str):
+            layers = [layers]
+        if isinstance(layers, list):
+            layers = {layer: 1 for layer in layers}
+        _layers = OrderedDict()
+        for layer in reversed(self.net.blobs.keys()):
+            if layer in layers:
+                _layers[layer] = layers[layer]
+        return _layers
+
     def dream(self, input_img, layers, progress=True, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
@@ -289,15 +300,7 @@ class CNN:
             which may contain components that are less than 0 or greater than 255.
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
-        if isinstance(layers, str):
-            layers = [layers]
-        if isinstance(layers, list):
-            layers = {layer: 1 for layer in layers}
-        _layers = OrderedDict()
-        for layer in reversed(self.net.blobs.keys()):
-            if layer in layers:
-                _layers[layer] = layers[layer]
-
+        _layers = self.prepare_layer_list(layers)
         for blob in self.net.blobs:
             self.diff[blob] = 0
 
