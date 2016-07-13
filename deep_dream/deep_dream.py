@@ -38,7 +38,7 @@ GOOGLENET_PLACES365 = CNNData(
 
 
 def save_as_hdr(arr, filename, gamma=2.2, allow_negative=True):
-    """Saves a float32 ndarray to a high dynamic range (OpenEXR) file.
+    """Saves a float32 ndarray to a high dynamic range (OpenEXR or float32 TIFF) file.
 
     Args:
         arr (ndarray): The input array.
@@ -51,13 +51,19 @@ def save_as_hdr(arr, filename, gamma=2.2, allow_negative=True):
     if gamma != 1:
         arr = np.sign(arr)*np.abs(arr)**gamma
     filename = str(filename)
-    extension = filename.rpartition('.')[2]
+    extension = filename.rpartition('.')[2].lower()
     if extension == 'exr':
         import OpenEXR
         exr = OpenEXR.OutputFile(filename, OpenEXR.Header(arr.shape[1], arr.shape[0]))
         exr.writePixels({'R': arr[..., 0].tobytes(),
                          'G': arr[..., 1].tobytes(),
                          'B': arr[..., 2].tobytes()})
+        exr.close()
+    elif extension == 'tif' or extension == 'tiff':
+        import tifffile
+        tiff = tifffile.TiffWriter(filename)
+        tiff.save(arr, photometric='rgb')
+        tiff.close()
     else:
         raise Exception('Unknown HDR file format.')
 

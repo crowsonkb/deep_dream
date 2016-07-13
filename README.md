@@ -65,7 +65,9 @@ Requirements
 - Python 3.5.
 - [Caffe](http://caffe.berkeleyvision.org), built against Python 3.5. (See the [Python 3.5 build tips](#python-35-build-tips).) I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
 - [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
-- [openexrpython](https://github.com/jamesbowman/openexrpython), installed from git master instead of 1.2.0 from PyPI, if you are going to use OpenEXR (high dynamic range) export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
+- For optional HDR export:
+    - [openexrpython](https://github.com/jamesbowman/openexrpython), installed from git master instead of 1.2.0 from PyPI, for OpenEXR export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
+    - [tifffile](https://pypi.python.org/pypi/tifffile) from PyPI for float32 TIFF export.
 - Pre-trained Caffe models (run `get_models.sh`; see [Models](#models) section).
 
 This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture).
