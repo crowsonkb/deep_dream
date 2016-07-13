@@ -3,8 +3,10 @@
 # pylint: disable=invalid-name, wrong-import-position
 
 from collections import namedtuple, OrderedDict
+import multiprocessing as mp
 import os
 from pathlib import Path
+import queue
 import re
 
 os.environ['GLOG_minloglevel'] = '1'
@@ -14,6 +16,9 @@ from PIL import Image
 from scipy import ndimage
 from tqdm import tqdm
 
+from .tile_worker import TileRequest, TileWorker
+
+CTX = mp.get_context('forkserver')
 EPS = np.finfo(np.float32).eps
 
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
@@ -108,13 +113,17 @@ class _LayerIndexer:
 class CNN:
     """Represents an instance of a Caffe convolutional neural network."""
 
-    def __init__(self, cnndata, gpu=None):
+    def __init__(self, cnndata, cpu_workers=1, gpus=[]):
         """Initializes a CNN.
 
+        Example:
+            CNN(GOOGLENET_PLACES365, cpu_workers=0, gpus=[0])
+
         Args:
-            gpu (Optional[int]): If present, Caffe will use this GPU device number. On a typical
-                system with one GPU, it should be 0. If not present Caffe will use the CPU.
+            cpus (Optional[int]): The number of CPU workers to start. The default is 1.
+            gpus (Optional[list[int]]): The GPU device numbers to start GPU workers on.
         """
+        caffe.set_mode_cpu()
         self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
                                     mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
@@ -125,11 +134,17 @@ class CNN:
         self.img = np.zeros_like(self.data['data'])
         self.total_px = 0
         self.progress_bar = None
-        if gpu is not None:
-            caffe.set_device(gpu)
-            caffe.set_mode_gpu()
-        else:
-            caffe.set_mode_cpu()
+        self.req_q = CTX.JoinableQueue()
+        self.resp_q = CTX.Queue()
+        self.workers = []
+        for _ in range(cpu_workers):
+            self.workers.append(TileWorker(self.req_q, self.resp_q, cnndata, None))
+        for gpu in gpus:
+            self.workers.append(TileWorker(self.req_q, self.resp_q, cnndata, gpu))
+
+    def __del__(self):
+        for worker in self.workers:
+            worker.__del__()
 
     def _preprocess(self, img):
         return np.rollaxis(np.float32(img), 2)[::-1] - self.net.transformer.mean['data']
@@ -158,27 +173,6 @@ class CNN:
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
 
-    def _grad_single_tile(self, data, layers, auto_weight=True):
-        self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
-        self.data['data'] = data
-
-        for layer in layers.keys():
-            self.diff[layer] = 0
-        self.net.forward(end=next(iter(layers.keys())))
-        layers_list = list(layers.keys())
-        for i, layer in enumerate(layers_list):
-            if auto_weight:
-                self.diff[layer] += \
-                    self.data[layer]*layers[layer]/np.abs(self.data[layer]).sum()
-            else:
-                self.diff[layer] += self.data[layer]*layers[layer]
-            if i+1 == len(layers):
-                self.net.backward(start=layer)
-            else:
-                self.net.backward(start=layer, end=layers_list[i+1])
-
-        return self.diff['data']
-
     def _grad_tiled(self, layers, progress=False, max_tile_size=512, **kwargs):
         # pylint: disable=too-many-locals
         if progress:
@@ -198,11 +192,17 @@ class CNN:
                 if x == nx-1:
                     tw += w - tw*nx
                 sy, sx = h//ny*y, w//nx*x
-                data = self.img[:, sy:sy+th, sx:sx+tw]
-                g[:, sy:sy+th, sx:sx+tw] = self._grad_single_tile(data, layers, **kwargs)
 
-                if progress:
-                    self.progress_bar.update(th*tw)
+                data = self.img[:, sy:sy+th, sx:sx+tw]
+                self.req_q.put(TileRequest((sy, sx), data, layers, kwargs))
+
+        for _ in range(ny*nx):
+            resp, grad = self.resp_q.get()
+            sy, sx = resp
+            g[:, sy:sy+grad.shape[1], sx:sx+grad.shape[2]] = grad
+            if progress:
+                self.progress_bar.update(np.prod(grad.shape[-2:]))
+
         return g
 
     def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smooth=0, **kwargs):
