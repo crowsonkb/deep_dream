@@ -84,7 +84,6 @@ Python 3.5 build tips
   PYTHON_LIB := /usr/lib
   PYTHON_LIBRARIES := boost_python-py35 python3.5m
   ```
-- numpy was installed using pip3.5 into system dist-packages.
 - I used openblas in this configuration. MKL is probably faster in CPU mode.
 
 ### OS X (Tested on El Capitan 10.11)
