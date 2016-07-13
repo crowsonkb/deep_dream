@@ -73,6 +73,8 @@ This implementation of Deep Dream is able to divide the gradient ascent step int
 Python 3.5 build tips
 ---------------------
 
+You will need protobuf 3 (currently in beta) for its Python 3 compatibility: 2.x will not work! Check out [protobuf](https://github.com/google/protobuf) and build/install both the main protobuf package (C++/protoc) and the Python module in `python/`. Do this before attempting to build Caffe.
+
 ### Linux (Tested on Ubuntu 16.04 LTS)
 
 - First see the [Ubuntu 15.10/16.04 installation guide](https://github.com/BVLC/caffe/wiki/Ubuntu-16.04-or-15.10-Installation-Guide) on the Caffe GitHub wiki.  
