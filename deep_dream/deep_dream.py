@@ -67,6 +67,7 @@ def save_as_hdr(arr, filename, gamma=2.2, allow_negative=True):
     else:
         raise Exception('Unknown HDR file format.')
 
+
 def to_image(arr):
     """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image.
 
@@ -157,7 +158,28 @@ class CNN:
         self.net.forward(end=end)
         return {layer: self.data[layer].copy() for layer in layers}
 
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512, auto_weight=True):
+    def _grad_single_tile(self, data, layers, auto_weight=True):
+        self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
+        self.data['data'] = data
+
+        for layer in layers.keys():
+            self.diff[layer] = 0
+        self.net.forward(end=next(iter(layers.keys())))
+        layers_list = list(layers.keys())
+        for i, layer in enumerate(layers_list):
+            if auto_weight:
+                self.diff[layer] += \
+                    self.data[layer]*layers[layer]/np.abs(self.data[layer]).sum()
+            else:
+                self.diff[layer] += self.data[layer]*layers[layer]
+            if i+1 == len(layers):
+                self.net.backward(start=layer)
+            else:
+                self.net.backward(start=layer, end=layers_list[i+1])
+
+        return self.diff['data']
+
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512, **kwargs):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -175,26 +197,9 @@ class CNN:
                 tw = w//nx
                 if x == nx-1:
                     tw += w - tw*nx
-                self.net.blobs['data'].reshape(1, 3, th, tw)
                 sy, sx = h//ny*y, w//nx*x
-                self.data['data'] = self.img[:, sy:sy+th, sx:sx+tw]
-
-                for layer in layers.keys():
-                    self.diff[layer] = 0
-                self.net.forward(end=next(iter(layers.keys())))
-                layers_list = list(layers.keys())
-                for i, layer in enumerate(layers_list):
-                    if auto_weight:
-                        self.diff[layer] += \
-                            self.data[layer]*layers[layer]/np.abs(self.data[layer]).sum()
-                    else:
-                        self.diff[layer] += self.data[layer]*layers[layer]
-                    if i+1 == len(layers):
-                        self.net.backward(start=layer)
-                    else:
-                        self.net.backward(start=layer, end=layers_list[i+1])
-
-                g[:, sy:sy+th, sx:sx+tw] = self.diff['data']
+                data = self.img[:, sy:sy+th, sx:sx+tw]
+                g[:, sy:sy+th, sx:sx+tw] = self._grad_single_tile(data, layers, **kwargs)
 
                 if progress:
                     self.progress_bar.update(th*tw)
