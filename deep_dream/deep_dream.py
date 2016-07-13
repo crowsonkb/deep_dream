@@ -37,6 +37,22 @@ GOOGLENET_PLACES365 = CNNData(
     categories=_BASE_DIR/'googlenet_places365/categories_places365.txt')
 
 
+def save_as_exr(arr, filename, gamma=2.2):
+    """Saves a float32 ndarray to an (HDR) OpenEXR file.
+
+    Args:
+        arr (ndarray): The input array.
+        filename (str): The output filename.
+        gamma (Optional[float]): The encoding gamma of arr."""
+    import OpenEXR
+    arr = arr.astype(np.float32)/255
+    arr = np.sign(arr)*np.abs(arr)**gamma
+    exr = OpenEXR.OutputFile(filename, OpenEXR.Header(arr.shape[1], arr.shape[0]))
+    exr.writePixels({'R': arr[..., 0].tobytes(),
+                     'G': arr[..., 1].tobytes(),
+                     'B': arr[..., 2].tobytes()})
+
+
 def to_image(arr):
     """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image."""
     return Image.fromarray(np.uint8(np.clip(np.round(arr), 0, 255)))
