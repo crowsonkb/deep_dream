@@ -222,15 +222,20 @@ class CNN:
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
 
     def _octave_detail(self, base, scales=4, min_size=32, per_octave=2, fn=None, **kwargs):
-        if fn:
-            kwargs.update(fn(base.shape[-2:]))
         if 'n' not in kwargs:
             kwargs['n'] = 10
+        n = kwargs['n']
+        fnargs = {}
+        if fn:
+            fnargs.update(fn(base.shape[-2:]))
+            if 'n' in fnargs:
+                n = fnargs['n']
         if min(base.shape[1:]) < 32:
             raise ShapeError(base.shape)
+
         factor = 2**(1/per_octave)
         detail = np.zeros_like(base, dtype=np.float32)
-        self.total_px += base.shape[1] * base.shape[2] * kwargs['n']
+        self.total_px += base.shape[1] * base.shape[2] * n
         if scales != 1:
             hf, wf = np.int32(np.round(np.array(base.shape)[-2:]/factor))
             if min(hf, wf) >= min_size:
@@ -239,6 +244,7 @@ class CNN:
                     smaller_base, scales-1, min_size, per_octave, fn, **kwargs)
                 detail = _resize(smaller_detail, base.shape[-2:])
         self.img = base + detail
+        kwargs.update(fnargs)
         self._step(**kwargs)
         return self.img - base
 
