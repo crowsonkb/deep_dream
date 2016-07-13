@@ -54,7 +54,10 @@ def save_as_exr(arr, filename, gamma=2.2):
 
 
 def to_image(arr):
-    """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image."""
+    """Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image.
+
+    Args:
+        arr (ndarray): The input array."""
     return Image.fromarray(np.uint8(np.clip(np.round(arr), 0, 255)))
 
 
