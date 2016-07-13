@@ -42,12 +42,12 @@ def save_as_exr(arr, filename, gamma=2.2):
 
     Args:
         arr (ndarray): The input array.
-        filename (str): The output filename.
+        filename (str | Path): The output filename.
         gamma (Optional[float]): The encoding gamma of arr."""
     import OpenEXR
     arr = arr.astype(np.float32)/255
     arr = np.sign(arr)*np.abs(arr)**gamma
-    exr = OpenEXR.OutputFile(filename, OpenEXR.Header(arr.shape[1], arr.shape[0]))
+    exr = OpenEXR.OutputFile(str(filename), OpenEXR.Header(arr.shape[1], arr.shape[0]))
     exr.writePixels({'R': arr[..., 0].tobytes(),
                      'G': arr[..., 1].tobytes(),
                      'B': arr[..., 2].tobytes()})
