@@ -53,7 +53,7 @@ Gradient ascent was performed using layers `inception_(3a-b, 4a-e, 5a-b)/output`
 Models
 ------
 
-Locations of pre-trained `.caffemodel` files (place them in their corresponding subdirectories to use them):
+Locations of pre-trained `.caffemodel` files (run `get_models.sh` to automatically download them):
 
 - [bvlc_googlenet](http://dl.caffe.berkeleyvision.org/bvlc_googlenet.caffemodel): tends toward visualizing abstract patterns, dogs, insects, and amorphous creatures.
 - [googlenet_places205](http://places.csail.mit.edu/model/googlenet_places205.tar.gz): tends toward visualizing buildings and landscapes.
