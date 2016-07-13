@@ -1,0 +1,512 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>deep_dream.deep_dream &mdash; deep_dream 0.1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="deep_dream 0.1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> deep_dream
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="simple">
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">deep_dream</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>deep_dream.deep_dream</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for deep_dream.deep_dream</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Deep Dreaming using Caffe and Google&#39;s Inception convolutional neural network.&quot;&quot;&quot;</span>
+
+<span class="c1"># pylint: disable=invalid-name, wrong-import-position</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span><span class="p">,</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;GLOG_minloglevel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;1&#39;</span>
+<span class="kn">import</span> <span class="nn">caffe</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="n">EPS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span>
+
+<span class="n">CNNData</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;CNNData&#39;</span><span class="p">,</span> <span class="s1">&#39;deploy model mean categories&#39;</span><span class="p">)</span>
+<span class="n">CNNData</span><span class="o">.</span><span class="n">__new__</span><span class="o">.</span><span class="n">__defaults__</span> <span class="o">=</span> <span class="p">(</span><span class="bp">None</span><span class="p">,)</span>  <span class="c1"># Make categories optional.</span>
+
+<span class="n">_BASE_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">GOOGLENET_BVLC</span> <span class="o">=</span> <span class="n">CNNData</span><span class="p">(</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;bvlc_googlenet/deploy.prototxt&#39;</span><span class="p">,</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;bvlc_googlenet/bvlc_googlenet.caffemodel&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="mi">104</span><span class="p">,</span> <span class="mi">117</span><span class="p">,</span> <span class="mi">123</span><span class="p">),</span>
+    <span class="n">categories</span><span class="o">=</span><span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;bvlc_googlenet/categories.txt&#39;</span><span class="p">)</span>
+<span class="n">GOOGLENET_PLACES205</span> <span class="o">=</span> <span class="n">CNNData</span><span class="p">(</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places205/deploy_places205.prototxt&#39;</span><span class="p">,</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places205/googlelet_places205_train_iter_2400000.caffemodel&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="mf">104.051</span><span class="p">,</span> <span class="mf">112.514</span><span class="p">,</span> <span class="mf">116.676</span><span class="p">),</span>  <span class="c1"># TODO: find the actual Places205 mean</span>
+    <span class="n">categories</span><span class="o">=</span><span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places205/categories.txt&#39;</span><span class="p">)</span>
+<span class="n">GOOGLENET_PLACES365</span> <span class="o">=</span> <span class="n">CNNData</span><span class="p">(</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places365/deploy_googlenet_places365.prototxt&#39;</span><span class="p">,</span>
+    <span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places365/googlenet_places365.caffemodel&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="mf">104.051</span><span class="p">,</span> <span class="mf">112.514</span><span class="p">,</span> <span class="mf">116.676</span><span class="p">),</span>
+    <span class="n">categories</span><span class="o">=</span><span class="n">_BASE_DIR</span><span class="o">/</span><span class="s1">&#39;googlenet_places365/categories_places365.txt&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="save_as_hdr"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.save_as_hdr">[docs]</a><span class="k">def</span> <span class="nf">save_as_hdr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">2.2</span><span class="p">,</span> <span class="n">allow_negative</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Saves a float32 ndarray to a high dynamic range (OpenEXR or float32 TIFF) file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        arr (ndarray): The input array.</span>
+<span class="sd">        filename (str | Path): The output filename.</span>
+<span class="sd">        gamma (Optional[float]): The encoding gamma of arr.</span>
+<span class="sd">        allow_negative (Optional[bool]): Clip negative values to zero if false.&quot;&quot;&quot;</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">/</span><span class="mi">255</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_negative</span><span class="p">:</span>
+        <span class="n">arr</span><span class="p">[</span><span class="n">arr</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">gamma</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">**</span><span class="n">gamma</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">extension</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">extension</span> <span class="o">==</span> <span class="s1">&#39;exr&#39;</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">OpenEXR</span>
+        <span class="n">exr</span> <span class="o">=</span> <span class="n">OpenEXR</span><span class="o">.</span><span class="n">OutputFile</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">OpenEXR</span><span class="o">.</span><span class="n">Header</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">exr</span><span class="o">.</span><span class="n">writePixels</span><span class="p">({</span><span class="s1">&#39;R&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
+                         <span class="s1">&#39;G&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
+                         <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()})</span>
+        <span class="n">exr</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">extension</span> <span class="o">==</span> <span class="s1">&#39;tif&#39;</span> <span class="ow">or</span> <span class="n">extension</span> <span class="o">==</span> <span class="s1">&#39;tiff&#39;</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">tifffile</span>
+        <span class="n">tiff</span> <span class="o">=</span> <span class="n">tifffile</span><span class="o">.</span><span class="n">TiffWriter</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">tiff</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">photometric</span><span class="o">=</span><span class="s1">&#39;rgb&#39;</span><span class="p">)</span>
+        <span class="n">tiff</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unknown HDR file format.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="to_image"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.to_image">[docs]</a><span class="k">def</span> <span class="nf">to_image</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        arr (ndarray): The input array.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">arr</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">)))</span></div>
+
+
+<span class="k">def</span> <span class="nf">_resize</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">Image</span><span class="o">.</span><span class="n">BICUBIC</span><span class="p">):</span>
+    <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">planes</span> <span class="o">=</span> <span class="p">[</span><span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Only 3D CxHxW arrays are supported&#39;</span><span class="p">)</span>
+    <span class="n">imgs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">plane</span><span class="p">)</span> <span class="k">for</span> <span class="n">plane</span> <span class="ow">in</span> <span class="n">planes</span><span class="p">]</span>
+    <span class="n">imgs_resized</span> <span class="o">=</span> <span class="p">[</span><span class="n">img</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">),</span> <span class="n">method</span><span class="p">)</span> <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">imgs</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">img</span><span class="p">)</span> <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">imgs_resized</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="ShapeError"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.ShapeError">[docs]</a><span class="k">class</span> <span class="nc">ShapeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;bad shape </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span></div>
+
+
+<span class="k">class</span> <span class="nc">_LayerIndexer</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">attr</span> <span class="o">=</span> <span class="n">net</span><span class="p">,</span> <span class="n">attr</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">attr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">attr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+
+<div class="viewcode-block" id="CNN"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN">[docs]</a><span class="k">class</span> <span class="nc">CNN</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Represents an instance of a Caffe convolutional neural network.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cnndata</span><span class="p">,</span> <span class="n">gpu</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a CNN.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            gpu (Optional[int]): If present, Caffe will use this GPU device number. On a typical</span>
+<span class="sd">                system with one GPU, it should be 0. If not present Caffe will use the CPU.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">caffe</span><span class="o">.</span><span class="n">Classifier</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cnndata</span><span class="o">.</span><span class="n">deploy</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">cnndata</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
+                                    <span class="n">mean</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">cnndata</span><span class="o">.</span><span class="n">mean</span><span class="p">),</span> <span class="n">channel_swap</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">_LayerIndexer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diff</span> <span class="o">=</span> <span class="n">_LayerIndexer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">,</span> <span class="s1">&#39;diff&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;prob&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">cnndata</span><span class="o">.</span><span class="n">categories</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">categories</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cnndata</span><span class="o">.</span><span class="n">categories</span><span class="p">))</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_px</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">gpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">caffe</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">gpu</span><span class="p">)</span>
+            <span class="n">caffe</span><span class="o">.</span><span class="n">set_mode_gpu</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">caffe</span><span class="o">.</span><span class="n">set_mode_cpu</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rollaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="mi">2</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">transformer</span><span class="o">.</span><span class="n">mean</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_deprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dstack</span><span class="p">((</span><span class="n">img</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">transformer</span><span class="o">.</span><span class="n">mean</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+<div class="viewcode-block" id="CNN.get_features"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN.get_features">[docs]</a>    <span class="k">def</span> <span class="nf">get_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_img</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">max_tile_size</span><span class="o">=</span><span class="mi">512</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve feature maps from the classification (forward) phase of operation.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            cnn.get_features(img, [&#39;prob&#39;])[&#39;prob&#39;] classifies &#39;img&#39; and returns the predicted</span>
+<span class="sd">            probability distribution over the network&#39;s categories.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dict which maps each layer in layers to a retrieved feature map.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">input_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preprocess</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">input_img</span><span class="p">))</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_tile_size</span><span class="p">,</span> <span class="n">input_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_tile_size</span><span class="p">,</span> <span class="n">input_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="o">*</span><span class="n">input_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">&gt;</span> <span class="n">max_tile_size</span><span class="p">:</span>
+            <span class="n">input_arr</span> <span class="o">=</span> <span class="n">_resize</span><span class="p">(</span><span class="n">input_arr</span><span class="p">,</span> <span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_arr</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">layer</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">}</span></div>
+
+    <span class="k">def</span> <span class="nf">_grad_tiled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">max_tile_size</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">auto_weight</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="c1"># pylint: disable=too-many-locals</span>
+        <span class="k">if</span> <span class="n">progress</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span>
+                    <span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">total_px</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;pix&#39;</span><span class="p">,</span> <span class="n">unit_scale</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+
+        <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># Height and width of input image</span>
+        <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="n">max_tile_size</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">w</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="n">max_tile_size</span><span class="o">+</span><span class="mi">1</span>  <span class="c1"># Number of tiles per dimension</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ny</span><span class="p">):</span>
+            <span class="n">th</span> <span class="o">=</span> <span class="n">h</span><span class="o">//</span><span class="n">ny</span>
+            <span class="k">if</span> <span class="n">y</span> <span class="o">==</span> <span class="n">ny</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">th</span> <span class="o">+=</span> <span class="n">h</span> <span class="o">-</span> <span class="n">th</span><span class="o">*</span><span class="n">ny</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nx</span><span class="p">):</span>
+                <span class="n">tw</span> <span class="o">=</span> <span class="n">w</span><span class="o">//</span><span class="n">nx</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">nx</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">tw</span> <span class="o">+=</span> <span class="n">w</span> <span class="o">-</span> <span class="n">tw</span><span class="o">*</span><span class="n">nx</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">th</span><span class="p">,</span> <span class="n">tw</span><span class="p">)</span>
+                <span class="n">sy</span><span class="p">,</span> <span class="n">sx</span> <span class="o">=</span> <span class="n">h</span><span class="o">//</span><span class="n">ny</span><span class="o">*</span><span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="o">//</span><span class="n">nx</span><span class="o">*</span><span class="n">x</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">[:,</span> <span class="n">sy</span><span class="p">:</span><span class="n">sy</span><span class="o">+</span><span class="n">th</span><span class="p">,</span> <span class="n">sx</span><span class="p">:</span><span class="n">sx</span><span class="o">+</span><span class="n">tw</span><span class="p">]</span>
+
+                <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">diff</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">end</span><span class="o">=</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">())))</span>
+                <span class="n">layers_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">layers_list</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">auto_weight</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">diff</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span> <span class="o">+=</span> \
+                            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">*</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">layer</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">diff</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">*</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">layers</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">layer</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">layers_list</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+
+                <span class="n">g</span><span class="p">[:,</span> <span class="n">sy</span><span class="p">:</span><span class="n">sy</span><span class="o">+</span><span class="n">th</span><span class="p">,</span> <span class="n">sx</span><span class="p">:</span><span class="n">sx</span><span class="o">+</span><span class="n">tw</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diff</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="n">progress</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">th</span><span class="o">*</span><span class="n">tw</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">g</span>
+
+    <span class="k">def</span> <span class="nf">_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">jitter</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">seed</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">jitter</span><span class="p">,</span> <span class="n">jitter</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">y</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grad_tiled</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">g</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">))</span> <span class="o">+</span> <span class="n">EPS</span>
+            <span class="k">if</span> <span class="n">smooth</span><span class="p">:</span>
+                <span class="n">kernel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">([[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]])</span>
+                <span class="n">g2</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
+                <span class="n">g2</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g2</span><span class="p">))</span> <span class="o">+</span> <span class="n">EPS</span>
+                <span class="n">g</span> <span class="o">-=</span> <span class="n">g2</span> <span class="o">*</span> <span class="n">smooth</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">+=</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">g</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">))</span> <span class="o">+</span> <span class="n">EPS</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">+=</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">g</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">,</span> <span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_octave_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">scales</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">per_octave</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">&lt;</span> <span class="mi">32</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ShapeError</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">per_octave</span><span class="p">)</span>
+        <span class="n">detail</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_px</span> <span class="o">+=</span> <span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+        <span class="k">if</span> <span class="n">scales</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">hf</span><span class="p">,</span> <span class="n">wf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span><span class="o">/</span><span class="n">factor</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">hf</span><span class="p">,</span> <span class="n">wf</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_size</span><span class="p">:</span>
+                <span class="n">smaller_base</span> <span class="o">=</span> <span class="n">_resize</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="p">(</span><span class="n">hf</span><span class="p">,</span> <span class="n">wf</span><span class="p">))</span>
+                <span class="n">smaller_detail</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_octave_detail</span><span class="p">(</span>
+                    <span class="n">smaller_base</span><span class="p">,</span> <span class="n">scales</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_size</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">per_octave</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">detail</span> <span class="o">=</span> <span class="n">_resize</span><span class="p">(</span><span class="n">smaller_detail</span><span class="p">,</span> <span class="n">base</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">detail</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">-</span> <span class="n">base</span>
+
+<div class="viewcode-block" id="CNN.layers"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN.layers">[docs]</a>    <span class="k">def</span> <span class="nf">layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s1">&#39;.*&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of layer names matching a regular expression.&quot;&quot;&quot;</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">layer</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s1">&#39;_split_&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">layer</span><span class="p">):</span>
+                <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">layers</span></div>
+
+<div class="viewcode-block" id="CNN.classify"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN.classify">[docs]</a>    <span class="k">def</span> <span class="nf">classify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_img</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Classifies the input image and returns the n most probable categories.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_img: The image to process (PIL images or Numpy arrays are accepted).</span>
+<span class="sd">            n: The n most probable categories to return.</span>
+<span class="sd">            max_tile_size: Does not allow the image dimension to exceed this.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list containing the n most probable categories.&quot;&quot;&quot;</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;prob&#39;</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)[</span><span class="s1">&#39;prob&#39;</span><span class="p">]</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">prob</span><span class="o">.</span><span class="n">argsort</span><span class="p">()[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="n">n</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="n">prob</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">categories</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="CNN.dream"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN.dream">[docs]</a>    <span class="k">def</span> <span class="nf">dream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_img</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Runs the Deep Dream multiscale gradient ascent algorithm on the input image.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_img: The image to process (PIL images or Numpy arrays are accepted)</span>
+<span class="sd">            layers (dict): The layer/feature weights to use in the objective function for gradient</span>
+<span class="sd">                ascent.</span>
+<span class="sd">            progress (Optional[bool]): Display a progress bar while computing.</span>
+<span class="sd">            scales (Optional[int]): The number of scales to process.</span>
+<span class="sd">            min_size (Optional[int]): Don&#39;t permit the small edge of the image to go below this.</span>
+<span class="sd">            per_octave (Optional[int]): Determines the difference between each scale; for instance,</span>
+<span class="sd">                the default of 2 means that a 1000x1000 input image will get processed as 707x707</span>
+<span class="sd">                and 500x500.</span>
+<span class="sd">            n (Optional[int]): The number of gradient ascent steps per scale. Defaults to 10.</span>
+<span class="sd">            step_size (Optional[float]): The strength of each individual gradient ascent step.</span>
+<span class="sd">                Specifically, each step will change the image&#39;s pixel values by a median of</span>
+<span class="sd">                step_size.</span>
+<span class="sd">            smooth (Optional[float]): The factor to smooth by at each gradient ascent step.</span>
+<span class="sd">                Try 0.1-0.25.</span>
+<span class="sd">            max_tile_size (Optional[int]): Defaults to 512, suitable for a GPU with 2 GB RAM.</span>
+<span class="sd">                Higher values perform better; if Caffe runs out of GPU memory and crashes then it</span>
+<span class="sd">                should be lowered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The unclipped processed image as a float32 ndarray which has a valid range of 0-255 but</span>
+<span class="sd">            which may contain components that are less than 0 or greater than 255.</span>
+<span class="sd">            deep_dream.to_image() can be used to convert the ndarray to a PIL image.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">layers</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">layers</span> <span class="o">=</span> <span class="p">{</span><span class="n">layer</span><span class="p">:</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">}</span>
+        <span class="n">_layers</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">:</span>
+                <span class="n">_layers</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">blobs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">diff</span><span class="p">[</span><span class="n">blob</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">input_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preprocess</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">input_img</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_px</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">detail</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_octave_detail</span><span class="p">(</span><span class="n">input_arr</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="n">_layers</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deprocess</span><span class="p">(</span><span class="n">detail</span> <span class="o">+</span> <span class="n">input_arr</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CNN.dream_guided"><a class="viewcode-back" href="../../index.html#deep_dream.deep_dream.CNN.dream_guided">[docs]</a>    <span class="k">def</span> <span class="nf">dream_guided</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_img</span><span class="p">,</span> <span class="n">guide_img</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">max_guide_size</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Performs guided gradient ascent on input_img, weighted by the feature map channel sums</span>
+<span class="sd">        of guide_img. This algorithm works best using a relatively large number of layers, such as</span>
+<span class="sd">        (for googlenet) anything matching the regular expression &#39;inception_../output&#39;. The</span>
+<span class="sd">        relative weights of the layers are determined automatically.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">layers</span><span class="p">]</span>
+        <span class="n">guide_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">guide_img</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">max_tile_size</span><span class="o">=</span><span class="n">max_guide_size</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">guide_features</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">]</span>
+            <span class="n">weights</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">/</span><span class="n">v</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dream</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">auto_weight</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Katherine Crowson.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

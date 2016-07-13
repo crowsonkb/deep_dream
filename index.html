@@ -1,0 +1,372 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Welcome to deep_dream’s documentation! &mdash; deep_dream 0.1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="deep_dream 0.1 documentation" href="#"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="#" class="icon icon-home"> deep_dream
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="simple">
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="#">deep_dream</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="#">Docs</a> &raquo;</li>
+      
+    <li>Welcome to deep_dream&#8217;s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/index.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="welcome-to-deep-dream-s-documentation">
+<h1>Welcome to deep_dream&#8217;s documentation!<a class="headerlink" href="#welcome-to-deep-dream-s-documentation" title="Permalink to this headline">¶</a></h1>
+</div>
+<div class="section" id="contents">
+<h1>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul class="simple">
+</ul>
+</div>
+<span class="target" id="module-deep_dream.deep_dream"></span><p>Deep Dreaming using Caffe and Google&#8217;s Inception convolutional neural network.</p>
+<dl class="class">
+<dt id="deep_dream.deep_dream.CNN">
+<em class="property">class </em><code class="descclassname">deep_dream.deep_dream.</code><code class="descname">CNN</code><span class="sig-paren">(</span><em>cnndata</em>, <em>gpu=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents an instance of a Caffe convolutional neural network.</p>
+<dl class="method">
+<dt id="deep_dream.deep_dream.CNN.classify">
+<code class="descname">classify</code><span class="sig-paren">(</span><em>input_img</em>, <em>n=1</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN.classify"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN.classify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Classifies the input image and returns the n most probable categories.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>input_img</strong> &#8211; The image to process (PIL images or Numpy arrays are accepted).</li>
+<li><strong>n</strong> &#8211; The n most probable categories to return.</li>
+<li><strong>max_tile_size</strong> &#8211; Does not allow the image dimension to exceed this.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list containing the n most probable categories.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="deep_dream.deep_dream.CNN.dream">
+<code class="descname">dream</code><span class="sig-paren">(</span><em>input_img</em>, <em>layers</em>, <em>progress=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN.dream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN.dream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs the Deep Dream multiscale gradient ascent algorithm on the input image.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>input_img</strong> &#8211; The image to process (PIL images or Numpy arrays are accepted)</li>
+<li><strong>layers</strong> (<em>dict</em>) &#8211; The layer/feature weights to use in the objective function for gradient
+ascent.</li>
+<li><strong>progress</strong> (<em>Optional[bool]</em>) &#8211; Display a progress bar while computing.</li>
+<li><strong>scales</strong> (<em>Optional[int]</em>) &#8211; The number of scales to process.</li>
+<li><strong>min_size</strong> (<em>Optional[int]</em>) &#8211; Don&#8217;t permit the small edge of the image to go below this.</li>
+<li><strong>per_octave</strong> (<em>Optional[int]</em>) &#8211; Determines the difference between each scale; for instance,
+the default of 2 means that a 1000x1000 input image will get processed as 707x707
+and 500x500.</li>
+<li><strong>n</strong> (<em>Optional[int]</em>) &#8211; The number of gradient ascent steps per scale. Defaults to 10.</li>
+<li><strong>step_size</strong> (<em>Optional[float]</em>) &#8211; The strength of each individual gradient ascent step.
+Specifically, each step will change the image&#8217;s pixel values by a median of
+step_size.</li>
+<li><strong>smooth</strong> (<em>Optional[float]</em>) &#8211; The factor to smooth by at each gradient ascent step.
+Try 0.1-0.25.</li>
+<li><strong>max_tile_size</strong> (<em>Optional[int]</em>) &#8211; Defaults to 512, suitable for a GPU with 2 GB RAM.
+Higher values perform better; if Caffe runs out of GPU memory and crashes then it
+should be lowered.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The unclipped processed image as a float32 ndarray which has a valid range of 0-255 but
+which may contain components that are less than 0 or greater than 255.
+deep_dream.to_image() can be used to convert the ndarray to a PIL image.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="deep_dream.deep_dream.CNN.dream_guided">
+<code class="descname">dream_guided</code><span class="sig-paren">(</span><em>input_img</em>, <em>guide_img</em>, <em>layers</em>, <em>max_guide_size=512</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN.dream_guided"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN.dream_guided" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs guided gradient ascent on input_img, weighted by the feature map channel sums
+of guide_img. This algorithm works best using a relatively large number of layers, such as
+(for googlenet) anything matching the regular expression &#8216;<a href="#id1"><span class="problematic" id="id2">inception_</span></a>../output&#8217;. The
+relative weights of the layers are determined automatically.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="deep_dream.deep_dream.CNN.get_features">
+<code class="descname">get_features</code><span class="sig-paren">(</span><em>input_img</em>, <em>layers</em>, <em>max_tile_size=512</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN.get_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN.get_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve feature maps from the classification (forward) phase of operation.</p>
+<p class="rubric">Example</p>
+<p>cnn.get_features(img, [&#8216;prob&#8217;])[&#8216;prob&#8217;] classifies &#8216;img&#8217; and returns the predicted
+probability distribution over the network&#8217;s categories.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A dict which maps each layer in layers to a retrieved feature map.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="deep_dream.deep_dream.CNN.layers">
+<code class="descname">layers</code><span class="sig-paren">(</span><em>pattern='.*'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#CNN.layers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.CNN.layers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of layer names matching a regular expression.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="deep_dream.deep_dream.CNNData">
+<em class="property">class </em><code class="descclassname">deep_dream.deep_dream.</code><code class="descname">CNNData</code><span class="sig-paren">(</span><em>deploy</em>, <em>model</em>, <em>mean</em>, <em>categories</em><span class="sig-paren">)</span><a class="headerlink" href="#deep_dream.deep_dream.CNNData" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="deep_dream.deep_dream.CNNData.categories">
+<code class="descname">categories</code><a class="headerlink" href="#deep_dream.deep_dream.CNNData.categories" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="deep_dream.deep_dream.CNNData.deploy">
+<code class="descname">deploy</code><a class="headerlink" href="#deep_dream.deep_dream.CNNData.deploy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="deep_dream.deep_dream.CNNData.mean">
+<code class="descname">mean</code><a class="headerlink" href="#deep_dream.deep_dream.CNNData.mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="deep_dream.deep_dream.CNNData.model">
+<code class="descname">model</code><a class="headerlink" href="#deep_dream.deep_dream.CNNData.model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="deep_dream.deep_dream.ShapeError">
+<em class="property">exception </em><code class="descclassname">deep_dream.deep_dream.</code><code class="descname">ShapeError</code><a class="reference internal" href="_modules/deep_dream/deep_dream.html#ShapeError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.ShapeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="deep_dream.deep_dream.save_as_hdr">
+<code class="descclassname">deep_dream.deep_dream.</code><code class="descname">save_as_hdr</code><span class="sig-paren">(</span><em>arr</em>, <em>filename</em>, <em>gamma=2.2</em>, <em>allow_negative=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#save_as_hdr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.save_as_hdr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves a float32 ndarray to a high dynamic range (OpenEXR or float32 TIFF) file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>arr</strong> (<em>ndarray</em>) &#8211; The input array.</li>
+<li><strong>filename</strong> (<em>str | Path</em>) &#8211; The output filename.</li>
+<li><strong>gamma</strong> (<em>Optional[float]</em>) &#8211; The encoding gamma of arr.</li>
+<li><strong>allow_negative</strong> (<em>Optional[bool]</em>) &#8211; Clip negative values to zero if false.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="deep_dream.deep_dream.to_image">
+<code class="descclassname">deep_dream.deep_dream.</code><code class="descname">to_image</code><span class="sig-paren">(</span><em>arr</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/deep_dream/deep_dream.html#to_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#deep_dream.deep_dream.to_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clips the values in a float32 ndarray to 0-255 and converts it to a PIL image.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>arr</strong> (<em>ndarray</em>) &#8211; The input array.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+</ul>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Katherine Crowson.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0.1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
