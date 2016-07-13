@@ -7,7 +7,18 @@ Requirements
 ------------
 
 - Python 3.5.
-- [Caffe](http://caffe.berkeleyvision.org), compiled to use Python 3.5. I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
+- [Caffe](http://caffe.berkeleyvision.org), built against Python 3.5. I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
+  - OS X:
+    - Caffe + Python 3.5 `Makefile.config` settings, with python3 installed through [homebrew](http://brew.sh):
+    ```make
+    PYTHON_DIR := /usr/local/opt/python3/Frameworks/Python.framework/Versions/3.5
+    PYTHON_INCLUDE := $(PYTHON_DIR)/include/python3.5m \
+            /usr/local/lib/python3.5/site-packages/numpy/core/include
+    PYTHON_LIB := $(PYTHON_DIR)/lib
+    PYTHON_LIBRARIES := boost_python3 python3.5m
+    ```
+    - This assumes you installed numpy with pip into the python3.5 system   site-packages directory. If you're in a virtualenv this may change.
+    - Leave the `BLAS` setting at `atlas`, unless you want to try MKL (faster). Recent OS X ships with an optimized multithreaded BLAS so there is little reason IMO to use openblas anymore.
 - [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
 - [openexrpython](https://github.com/jamesbowman/openexrpython), installed from git master instead of 1.2.0 from PyPI, if you are going to use OpenEXR (high dynamic range) export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
 - Pre-trained Caffe models (run `get_models.sh`; see [Models](#models) section).
