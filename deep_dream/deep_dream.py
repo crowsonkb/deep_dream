@@ -192,7 +192,7 @@ class CNN:
     def _deprocess(self, img):
         return np.dstack((img + self.net.transformer.mean['data'])[::-1])
 
-    def get_features(self, input_img, layers, max_tile_size=512):
+    def get_features(self, input_img, layers=None, max_tile_size=512):
         """Retrieve feature maps from the classification (forward) phase of operation.
 
         Example:
@@ -211,6 +211,8 @@ class CNN:
         self.data['data'] = input_arr
         end = self.layers()[-1]
         self.net.forward(end=end)
+        if not layers:
+            layers = self.layers()
         return {layer: self.data[layer].copy() for layer in layers}
 
     def _grad_tiled(self, layers, progress=False, max_tile_size=512, **kwargs):
@@ -325,6 +327,26 @@ class CNN:
                 _layers[layer] = layers[layer]
         return _layers
 
+    def prepare_guide_weights(self, guide_img, layers=None, max_guide_size=512):
+        if not layers:
+            layers = self.layers()
+        if isinstance(layers, str):
+            layers = [layers]
+        guide_features = self.get_features(guide_img, layers, max_tile_size=max_guide_size)
+        weights = {}
+        for layer in layers:
+            if guide_features[layer].ndim != 3:
+                continue
+            v = guide_features[layer].sum(1).sum(1)[:, None, None]
+            weights[layer] = v/np.abs(v).sum()**2
+        return self.prepare_layer_list(weights)
+
+    def subset_layers(self, layers, new_layers):
+        _layers = OrderedDict()
+        for layer in new_layers:
+            _layers[layer] = layers[layer]
+        return _layers
+
     def dream(self, input_img, layers, progress=True, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
@@ -374,11 +396,5 @@ class CNN:
         (for googlenet) anything matching the regular expression 'inception_../output'. The
         relative weights of the layers are determined automatically."""
         self.ensure_healthy()
-        if isinstance(layers, str):
-            layers = [layers]
-        guide_features = self.get_features(guide_img, layers, max_tile_size=max_guide_size)
-        weights = {}
-        for layer in layers:
-            v = guide_features[layer].sum(1).sum(1)[:, None, None]
-            weights[layer] = v/np.abs(v).sum()**2
+        weights = self.prepare_guide_weights(guide_img, layers, max_guide_size)
         return self.dream(input_img, weights, auto_weight=False, **kwargs)
