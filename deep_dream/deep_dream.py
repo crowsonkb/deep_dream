@@ -21,6 +21,11 @@ from .tile_worker import TileRequest, TileWorker
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
 
+"""A smoothing kernel - Sobel weight matrix and truncated Gaussian (std 1.2).
+   (http://www.hlevkin.com/articles/SobelScharrGradients5x5.pdf)"""
+KERNEL = np.sqrt(np.float32([[[1, 2, 1], [2, 4, 2], [1, 2, 1]]]))
+KERNEL /= KERNEL.sum()
+
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
 
@@ -235,7 +240,7 @@ class CNN:
 
         return g
 
-    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smooth=0, **kwargs):
+    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, **kwargs):
         np.random.seed(self.img.size + seed)
         for _ in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
@@ -243,14 +248,9 @@ class CNN:
             g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
             self.img += step_size * g
-            if smooth:
-                kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
-                g2 = ndimage.convolve(self.img, kernel)
-                g2 /= np.mean(np.abs(g2)) + EPS
-                g -= g2 * smooth
-                self.img -= g2 * smooth
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
-
+            if smoothing:
+                self.img = self.img*(1-smoothing) + ndimage.convolve(self.img, KERNEL)*smoothing
     def _octave_detail(self, base, scales=4, min_size=32, per_octave=2, fn=None, **kwargs):
         if 'n' not in kwargs:
             kwargs['n'] = 10
