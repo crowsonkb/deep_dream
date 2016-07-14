@@ -315,9 +315,6 @@ class CNN:
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
         _layers = self.prepare_layer_list(layers)
-        for blob in self.net.blobs:
-            self.diff[blob] = 0
-
         input_arr = self._preprocess(np.float32(input_img))
         self.total_px = 0
         self.progress_bar = None

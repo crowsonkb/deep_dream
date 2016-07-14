@@ -40,6 +40,8 @@ class TileWorker:
             caffe.set_mode_cpu()
 
         while True:
+            for blob in self.net.blobs:
+                self.diff[blob] = 0
             req = self.req_q.get()
             grad = self._grad_single_tile(req.data, req.layers, **req.kwargs)
             resp = TileResponse(req.resp, grad)
@@ -50,10 +52,8 @@ class TileWorker:
         self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
         self.data['data'] = data
 
-        for layer in layers.keys():
-            self.diff[layer] = 0
-        self.net.forward(end=next(iter(layers.keys())))
         layers_list = list(layers.keys())
+        self.net.forward(end=layers_list[0])
         for i, layer in enumerate(layers_list):
             if auto_weight:
                 self.diff[layer] += \
@@ -65,4 +65,4 @@ class TileWorker:
             else:
                 self.net.backward(start=layer, end=layers_list[i+1])
 
-        return self.diff['data']
+        return self.diff['data'].copy()
