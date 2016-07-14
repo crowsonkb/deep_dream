@@ -339,5 +339,5 @@ class CNN:
         weights = {}
         for layer in layers:
             v = guide_features[layer].sum(1).sum(1)[:, None, None]
-            weights[layer] = v/v.sum()**2
+            weights[layer] = v/np.abs(v).sum()**2
         return self.dream(input_img, weights, auto_weight=False, **kwargs)
