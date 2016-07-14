@@ -113,14 +113,15 @@ class _LayerIndexer:
 class CNN:
     """Represents an instance of a Caffe convolutional neural network."""
 
-    def __init__(self, cnndata, cpu_workers=1, gpus=[]):
+    def __init__(self, cnndata, cpu_workers=0, gpus=[]):
         """Initializes a CNN.
 
         Example:
             CNN(GOOGLENET_PLACES365, cpu_workers=0, gpus=[0])
 
         Args:
-            cpus (Optional[int]): The number of CPU workers to start. The default is 1.
+            cpu_workers (Optional[int]): The number of CPU workers to start. The default is 1 if
+                no other compute devices are specified.
             gpus (Optional[list[int]]): The GPU device numbers to start GPU workers on.
         """
         caffe.set_mode_cpu()
@@ -137,6 +138,8 @@ class CNN:
         self.req_q = CTX.JoinableQueue()
         self.resp_q = CTX.Queue()
         self.workers = []
+        if not cpu_workers and not gpus:
+            cpu_workers = 1
         for _ in range(cpu_workers):
             self.workers.append(TileWorker(self.req_q, self.resp_q, cnndata, None))
         for gpu in gpus:
