@@ -1,7 +1,9 @@
 deep_dream
 ==========
 
-An implementation of the Deep Dream image processing algorithm which is able to process large (wallpaper-sized) images despite GPU or main memory limits.
+An implementation of the Deep Dream image processing algorithm which is able to process large (wallpaper-sized) images despite GPU or main memory limits. It is also able to use multiple processes to take advantage of several CPUs and/or GPUs.
+
+This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture). Further, several tiles can be processed simultaneously on machines with more than one compute device (CPU or GPU).
 
 1. [Example](#example)
 1. [CNN.dream_guided() example](#cnndream_guided-example)
@@ -16,7 +18,7 @@ Example
 import deep_dream as dd
 from PIL import Image
 
-cnn = dd.CNN(dd.GOOGLENET_PLACES365, gpu=0)
+cnn = dd.CNN(dd.GOOGLENET_PLACES365, gpus=[0])
 img = Image.open('kodim/img0022.jpg').resize((768, 512), Image.LANCZOS)
 ```
 
@@ -69,8 +71,6 @@ Requirements
     - [openexrpython](https://github.com/jamesbowman/openexrpython), installed from git master instead of 1.2.0 from PyPI, for OpenEXR export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
     - [tifffile](https://pypi.python.org/pypi/tifffile) from PyPI for float32 TIFF export.
 - Pre-trained Caffe models (run `get_models.sh`; see [Models](#models) section).
-
-This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture).
 
 Python 3.5 build tips
 ---------------------
