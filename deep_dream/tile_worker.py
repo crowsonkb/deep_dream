@@ -1,4 +1,5 @@
 from collections import namedtuple
+import os
 
 import numpy as np
 
@@ -12,7 +13,11 @@ class TileWorker:
     def __init__(self, req_q, resp_q, cnndata, gpu=None):
         self.req_q = req_q
         self.resp_q = resp_q
-        self.proc = dd.CTX.Process(target=self._run, args=(cnndata, gpu), daemon=True)
+        if gpu is not None:
+            name = 'GPU-%d' % gpu
+        else:
+            name = 'CPU'
+        self.proc = dd.CTX.Process(target=self._run, args=(cnndata, gpu), name=name, daemon=True)
         self.proc.start()
 
     def __del__(self):
@@ -20,6 +25,8 @@ class TileWorker:
 
     # pylint: disable=attribute-defined-outside-init
     def _run(self, cnndata, gpu=None):
+        if gpu is not None:
+            os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
         import caffe
 
         self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
@@ -28,7 +35,6 @@ class TileWorker:
         self.diff = dd._LayerIndexer(self.net, 'diff')
 
         if gpu is not None:
-            caffe.set_device(gpu)
             caffe.set_mode_gpu()
         else:
             caffe.set_mode_cpu()
