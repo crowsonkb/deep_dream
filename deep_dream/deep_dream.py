@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from .tile_worker import TileRequest, TileWorker
 
-CTX = mp.get_context('forkserver')
+CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
 
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
