@@ -99,6 +99,13 @@ class ShapeError(Exception):
         return 'bad shape %s' % self.args
 
 
+class CaffeStateError(Exception):
+    """Raised by CNN when the worker processes have died or malfunctioned, or Caffe is otherwise
+       in a bad state. This error is only dealable with by creating a new CNN instance."""
+    def __str__(self):
+        return 'Bad Caffe state: %s' % self.args
+
+
 class _LayerIndexer:
     def __init__(self, net, attr):
         self.net, self.attr = net, attr
@@ -138,6 +145,7 @@ class CNN:
         self.req_q = CTX.JoinableQueue()
         self.resp_q = CTX.Queue()
         self.workers = []
+        self.is_healthy = True
         if not cpu_workers and not gpus:
             cpu_workers = 1
         for _ in range(cpu_workers):
@@ -146,8 +154,20 @@ class CNN:
             self.workers.append(TileWorker(self.req_q, self.resp_q, cnndata, gpu))
 
     def __del__(self):
+        self.is_healthy = False
         for worker in self.workers:
             worker.__del__()
+
+    def ensure_healthy(self):
+        """Ensures that the worker subprocesses are healthy. If one has terminated, it will
+           terminate the others, set self.is_healthy to False, and raise a CaffeStateError."""
+        if not self.is_healthy:
+            raise CaffeStateError('The worker processes were terminated. Please make a new CNN instance.')
+        for worker in self.workers:
+            if worker.proc.exitcode:
+                self.__del__()
+                raise CaffeStateError('Worker process malfunction detected; terminating others.')
+        return True
 
     def _preprocess(self, img):
         return np.rollaxis(np.float32(img), 2)[::-1] - self.net.transformer.mean['data']
@@ -197,10 +217,17 @@ class CNN:
                 sy, sx = h//ny*y, w//nx*x
 
                 data = self.img[:, sy:sy+th, sx:sx+tw]
+                self.ensure_healthy()
                 self.req_q.put(TileRequest((sy, sx), data, layers, kwargs))
 
         for _ in range(ny*nx):
-            resp, grad = self.resp_q.get()
+            while True:
+                try:
+                    self.ensure_healthy()
+                    resp, grad = self.resp_q.get(True, 1)
+                    break
+                except queue.Empty:
+                    continue
             sy, sx = resp
             g[:, sy:sy+grad.shape[1], sx:sx+grad.shape[2]] = grad
             if progress:
@@ -314,12 +341,16 @@ class CNN:
             which may contain components that are less than 0 or greater than 255.
             deep_dream.to_image() can be used to convert the ndarray to a PIL image.
         """
+        self.ensure_healthy()
         _layers = self.prepare_layer_list(layers)
         input_arr = self._preprocess(np.float32(input_img))
         self.total_px = 0
         self.progress_bar = None
         try:
             detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
+        except KeyboardInterrupt:
+            self.__del__()
+            raise CaffeStateError('Worker processes left in inconsistent states. Terminating them.')
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
@@ -330,6 +361,7 @@ class CNN:
         of guide_img. This algorithm works best using a relatively large number of layers, such as
         (for googlenet) anything matching the regular expression 'inception_../output'. The
         relative weights of the layers are determined automatically."""
+        self.ensure_healthy()
         if isinstance(layers, str):
             layers = [layers]
         guide_features = self.get_features(guide_img, layers, max_tile_size=max_guide_size)
