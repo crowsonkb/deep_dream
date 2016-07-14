@@ -47,6 +47,18 @@ GOOGLENET_PLACES365 = CNNData(
     categories=_BASE_DIR/'googlenet_places365/categories_places365.txt')
 
 
+def call_normalized(fn, arr, *args, **kwargs):
+    normed = arr.copy()
+    offset = normed.min()
+    normed -= offset
+    scale = normed.max()
+    normed /= scale
+    ret = fn(normed, *args, **kwargs)
+    if isinstance(ret, np.ndarray):
+        return ret * scale + offset
+    return ret
+
+
 def save_as_hdr(arr, filename, gamma=2.2, allow_negative=True):
     """Saves a float32 ndarray to a high dynamic range (OpenEXR or float32 TIFF) file.
 
