@@ -2,11 +2,12 @@ from collections import namedtuple
 import os
 
 import numpy as np
+from numpy.linalg import norm
 
 import deep_dream as dd
 
-TileRequest = namedtuple('TileRequest', 'resp data layers kwargs')
-TileResponse = namedtuple('TileResponse', 'resp grad')
+TileRequest = namedtuple('TileRequest', 'resp data layers')
+TileResponse = namedtuple('TileResponse', 'resp grad obj denom')
 
 
 class TileWorker:
@@ -43,26 +44,32 @@ class TileWorker:
             for blob in self.net.blobs:
                 self.diff[blob] = 0
             req = self.req_q.get()
-            grad = self._grad_single_tile(req.data, req.layers, **req.kwargs)
-            resp = TileResponse(req.resp, grad)
+            grad, obj = self._grad_single_tile(req.data, req.layers)
+            resp = TileResponse(req.resp, grad, obj[0], obj[1])
             self.resp_q.put(resp)
             self.req_q.task_done()
 
-    def _grad_single_tile(self, data, layers, auto_weight=True):
+    def _grad_single_tile(self, data, layers):
+        obj_num, obj_denom = 0, 0
         self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
         self.data['data'] = data
 
         layers_list = list(layers.keys())
         self.net.forward(end=layers_list[0])
         for i, layer in enumerate(layers_list):
-            if auto_weight:
-                self.diff[layer] += \
-                    self.data[layer]*layers[layer]/np.abs(self.data[layer]).sum()
+            weighted = self.data[layer] * layers[layer]
+
+            obj_num += norm(weighted.flatten(), 1)
+            if not np.ndim(layers[layer]):
+                obj_denom += self.data[layer].size * layers[layer]
             else:
-                self.diff[layer] += self.data[layer]*layers[layer]
+                obj_denom += self.data[layer][0].size * norm(layers[layer], 1)
+
+            self.diff[layer] += weighted / (norm(weighted.flatten())+dd.EPS)
+
             if i+1 == len(layers):
                 self.net.backward(start=layer)
             else:
                 self.net.backward(start=layer, end=layers_list[i+1])
 
-        return self.diff['data'].copy()
+        return self.diff['data'].copy(), (obj_num, obj_denom)

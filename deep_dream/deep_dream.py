@@ -12,6 +12,7 @@ import re
 os.environ['GLOG_minloglevel'] = '1'
 import caffe
 import numpy as np
+from numpy.linalg import norm
 from PIL import Image
 from scipy import ndimage
 from skimage.restoration import denoise_tv_bregman
@@ -21,11 +22,6 @@ from .tile_worker import TileRequest, TileWorker
 
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
-
-# """A smoothing kernel - Sobel weight matrix and truncated Gaussian (std 1.2).
-#    (http://www.hlevkin.com/articles/SobelScharrGradients5x5.pdf)"""
-# KERNEL = np.sqrt(np.float32([[[1, 2, 1], [2, 4, 2], [1, 2, 1]]]))
-# KERNEL /= KERNEL.sum()
 
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
@@ -46,6 +42,11 @@ GOOGLENET_PLACES365 = CNNData(
     _BASE_DIR/'googlenet_places365/googlenet_places365.caffemodel',
     (104.051, 112.514, 116.676),
     categories=_BASE_DIR/'googlenet_places365/categories_places365.txt')
+RESNET_50 = CNNData(
+    _BASE_DIR/'resnet/ResNet-50-deploy.prototxt',
+    _BASE_DIR/'resnet/ResNet-50-model.caffemodel',
+    (104, 117, 123),
+    categories=_BASE_DIR/'bvlc_googlenet/categories.txt')
 
 
 def call_normalized(fn, arr, *args, **kwargs):
@@ -214,9 +215,12 @@ class CNN:
         self.net.forward(end=end)
         if not layers:
             layers = self.layers()
-        return {layer: self.data[layer].copy() for layer in layers}
+        features = OrderedDict()
+        for layer in layers:
+            features[layer] = self.data[layer].copy()
+        return features
 
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512, **kwargs):
+    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -238,13 +242,16 @@ class CNN:
 
                 data = self.img[:, sy:sy+th, sx:sx+tw]
                 self.ensure_healthy()
-                self.req_q.put(TileRequest((sy, sx), data, layers, kwargs))
+                self.req_q.put(TileRequest((sy, sx), data, layers))
 
+        obj, denom = 0, 0
         for _ in range(ny*nx):
             while True:
                 try:
                     self.ensure_healthy()
-                    resp, grad = self.resp_q.get(True, 1)
+                    resp, grad, _obj, _denom = self.resp_q.get(True, 1)
+                    obj += _obj
+                    denom += _denom
                     break
                 except queue.Empty:
                     continue
@@ -253,6 +260,7 @@ class CNN:
             if progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
+        # print('Objective: %g' % (obj/denom))
         return g
 
     def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, **kwargs):
@@ -305,6 +313,8 @@ class CNN:
                 continue
             if re.fullmatch(pattern, layer):
                 layers.append(layer)
+        if not layers:
+            raise KeyError('no layers found')
         return layers
 
     def classify(self, input_img, n=1, **kwargs):
@@ -342,8 +352,8 @@ class CNN:
         for layer in layers:
             if guide_features[layer].ndim != 3:
                 continue
-            v = guide_features[layer].sum(1).sum(1)[:, None, None]
-            weights[layer] = v/np.abs(v).sum()**2
+            v = np.sum(guide_features[layer], axis=(1, 2), keepdims=True)
+            weights[layer] = v/norm(v.flatten(), 1)
         return self.prepare_layer_list(weights)
 
     def subset_layers(self, layers, new_layers):
@@ -405,4 +415,4 @@ class CNN:
         relative weights of the layers are determined automatically."""
         self.ensure_healthy()
         weights = self.prepare_guide_weights(guide_img, layers, max_guide_size)
-        return self.dream(input_img, weights, auto_weight=False, **kwargs)
+        return self.dream(input_img, weights, **kwargs)
