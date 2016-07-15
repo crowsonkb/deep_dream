@@ -14,6 +14,7 @@ import caffe
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from skimage.restoration import denoise_tv_bregman
 from tqdm import tqdm
 
 from .tile_worker import TileRequest, TileWorker
@@ -21,10 +22,10 @@ from .tile_worker import TileRequest, TileWorker
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
 
-"""A smoothing kernel - Sobel weight matrix and truncated Gaussian (std 1.2).
-   (http://www.hlevkin.com/articles/SobelScharrGradients5x5.pdf)"""
-KERNEL = np.sqrt(np.float32([[[1, 2, 1], [2, 4, 2], [1, 2, 1]]]))
-KERNEL /= KERNEL.sum()
+# """A smoothing kernel - Sobel weight matrix and truncated Gaussian (std 1.2).
+#    (http://www.hlevkin.com/articles/SobelScharrGradients5x5.pdf)"""
+# KERNEL = np.sqrt(np.float32([[[1, 2, 1], [2, 4, 2], [1, 2, 1]]]))
+# KERNEL /= KERNEL.sum()
 
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
@@ -254,7 +255,7 @@ class CNN:
 
         return g
 
-    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, **kwargs):
+    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, **kwargs):
         np.random.seed(self.img.size + seed)
         for _ in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
@@ -264,7 +265,11 @@ class CNN:
             self.img += step_size * g
             self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
             if smoothing:
-                self.img = self.img*(1-smoothing) + ndimage.convolve(self.img, KERNEL)*smoothing
+                smoothed = ndimage.gaussian_filter(self.img, (0, 1, 1), mode='nearest', truncate=2)
+                self.img = self.img*(1-smoothing) + smoothed*smoothing
+        if tv_weight is not None:
+            self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
+
     def _octave_detail(self, base, scales=4, min_size=32, per_octave=2, fn=None, **kwargs):
         if 'n' not in kwargs:
             kwargs['n'] = 10
@@ -364,8 +369,11 @@ class CNN:
             step_size (Optional[float]): The strength of each individual gradient ascent step.
                 Specifically, each step will change the image's pixel values by a median of
                 step_size.
-            smooth (Optional[float]): The factor to smooth by at each gradient ascent step.
-                Try 0.1-0.25.
+            smoothing (Optional[float]): The factor to smooth the image by after each gradient
+                ascent step. Try 0.02-0.1.
+            tv_weight (Optional[float]): The denoising weight for total variation regularization,
+                performed at the end of each scale. Higher values smooth the image less.
+                Try 25-100.
             max_tile_size (Optional[int]): Defaults to 512, suitable for a GPU with 2 GB RAM.
                 Higher values perform better; if Caffe runs out of GPU memory and crashes then it
                 should be lowered.
