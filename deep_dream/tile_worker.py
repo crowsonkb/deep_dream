@@ -60,7 +60,7 @@ class TileWorker:
 
             obj_num += dd.normf(weighted, 1)
             if not np.ndim(layers[layer]):
-                obj_denom += self.data[layer].size * layers[layer]
+                obj_denom += self.data[layer].size * np.abs(layers[layer])
             else:
                 obj_denom += self.data[layer][0].size * dd.normf(layers[layer], 1)
 
