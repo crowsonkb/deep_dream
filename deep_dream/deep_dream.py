@@ -165,7 +165,6 @@ class CNN:
         if cnndata.categories is not None:
             self.categories = open(str(cnndata.categories)).read().splitlines()
         self.img = np.zeros_like(self.data['data'])
-        self.input_size = None
         self.step = 0
         self.total_px = 0
         self.progress_bar = None
@@ -273,7 +272,7 @@ class CNN:
 
     def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
-        for i in range(n):
+        for _ in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
@@ -284,8 +283,7 @@ class CNN:
                 smoothed = ndimage.gaussian_filter(self.img, (0, 1, 1), mode='nearest', truncate=2)
                 self.img = self.img*(1-smoothing) + smoothed*smoothing
             if save_intermediates:
-                h, w = self.input_size
-                to_image(self._deprocess(self.img)).resize((w, h), Image.BICUBIC).save('out%04d.bmp' % self.step)
+                to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
         if tv_weight is not None:
             self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
@@ -372,7 +370,7 @@ class CNN:
             _layers[layer] = layers[layer]
         return _layers
 
-    def dream(self, input_img, layers, progress=True, **kwargs):
+    def dream(self, input_img, layers, progress=True, save_intermediates=False, **kwargs):
         """Runs the Deep Dream multiscale gradient ascent algorithm on the input image.
 
         Args:
@@ -407,17 +405,20 @@ class CNN:
         input_arr = self._preprocess(np.float32(input_img))
         self.total_px = 0
         self.progress_bar = None
-        self.input_size = input_arr.shape[1:]
         self.step = 0
         try:
-            detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
+            detail = self._octave_detail(input_arr, layers=_layers, progress=progress,
+                                         save_intermediates=save_intermediates, **kwargs)
         except KeyboardInterrupt:
             self.__del__()
             raise CaffeStateError('Worker processes left in inconsistent states. Terminating them.')
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
-        return self._deprocess(detail + input_arr)
+        output = self._deprocess(detail + input_arr)
+        if save_intermediates:
+            to_image(output).save('out%04d.bmp' % self.step)
+        return output
 
     def dream_guided(self, input_img, guide_img, layers, max_guide_size=512, **kwargs):
         """Performs guided gradient ascent on input_img, weighted by the feature map channel sums
