@@ -12,7 +12,6 @@ import re
 os.environ['GLOG_minloglevel'] = '1'
 import caffe
 import numpy as np
-from numpy.linalg import norm
 from PIL import Image
 from scipy import ndimage
 from skimage.restoration import denoise_tv_bregman
@@ -47,6 +46,10 @@ RESNET_50 = CNNData(
     _BASE_DIR/'resnet/ResNet-50-model.caffemodel',
     (104, 117, 123),
     categories=_BASE_DIR/'bvlc_googlenet/categories.txt')
+
+
+def normf(arr, *args, **kwargs):
+    return np.linalg.norm(arr.flatten(), *args, **kwargs)
 
 
 def call_normalized(fn, arr, *args, **kwargs):
@@ -353,7 +356,7 @@ class CNN:
             if guide_features[layer].ndim != 3:
                 continue
             v = np.sum(guide_features[layer], axis=(1, 2), keepdims=True)
-            weights[layer] = v/norm(v.flatten(), 1)
+            weights[layer] = v/normf(v, 1)
         return self.prepare_layer_list(weights)
 
     def subset_layers(self, layers, new_layers):

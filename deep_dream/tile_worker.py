@@ -2,7 +2,6 @@ from collections import namedtuple
 import os
 
 import numpy as np
-from numpy.linalg import norm
 
 import deep_dream as dd
 
@@ -59,13 +58,13 @@ class TileWorker:
         for i, layer in enumerate(layers_list):
             weighted = self.data[layer] * layers[layer]
 
-            obj_num += norm(weighted.flatten(), 1)
+            obj_num += dd.normf(weighted, 1)
             if not np.ndim(layers[layer]):
                 obj_denom += self.data[layer].size * layers[layer]
             else:
-                obj_denom += self.data[layer][0].size * norm(layers[layer], 1)
+                obj_denom += self.data[layer][0].size * dd.normf(layers[layer], 1)
 
-            self.diff[layer] += weighted / (norm(weighted.flatten())+dd.EPS)
+            self.diff[layer] += weighted / (dd.normf(weighted)+dd.EPS)
 
             if i+1 == len(layers):
                 self.net.backward(start=layer)
