@@ -290,7 +290,7 @@ class CNN:
         if tv_weight is not None:
             self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
 
-    def _octave_detail(self, base, scales=4, min_size=32, per_octave=2, fn=None, **kwargs):
+    def _octave_detail(self, base, min_size=32, per_octave=2, fn=None, **kwargs):
         if 'n' not in kwargs:
             kwargs['n'] = 10
         n = kwargs['n']
@@ -305,13 +305,11 @@ class CNN:
         factor = 2**(1/per_octave)
         detail = np.zeros_like(base, dtype=np.float32)
         self.total_px += base.shape[1] * base.shape[2] * n
-        if scales != 1:
-            hf, wf = np.int32(np.round(np.array(base.shape)[-2:]/factor))
-            if min(hf, wf) >= min_size:
-                smaller_base = _resize(base, (hf, wf))
-                smaller_detail = self._octave_detail(
-                    smaller_base, scales-1, min_size, per_octave, fn, **kwargs)
-                detail = _resize(smaller_detail, base.shape[-2:])
+        hf, wf = np.int32(np.round(np.array(base.shape)[-2:]/factor))
+        if min(hf, wf) >= min_size:
+            smaller_base = _resize(base, (hf, wf))
+            smaller_detail = self._octave_detail(smaller_base, min_size, per_octave, fn, **kwargs)
+            detail = _resize(smaller_detail, base.shape[-2:])
         self.img = base + detail
         kwargs.update(fnargs)
         self._step(**kwargs)
@@ -382,7 +380,6 @@ class CNN:
             layers (dict): The layer/feature weights to use in the objective function for gradient
                 ascent.
             progress (Optional[bool]): Display a progress bar while computing.
-            scales (Optional[int]): The number of scales to process.
             min_size (Optional[int]): Don't permit the small edge of the image to go below this.
             per_octave (Optional[int]): Determines the difference between each scale; for instance,
                 the default of 2 means that a 1000x1000 input image will get processed as 707x707
