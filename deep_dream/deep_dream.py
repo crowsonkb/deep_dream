@@ -158,10 +158,15 @@ class CNN:
                                     mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
-        self.categories = [str(i) for i in range(self.data['prob'].size)]
+        try:
+            self.categories = [str(i) for i in range(self.data['prob'].size)]
+        except KeyError:
+            self.categories = []
         if cnndata.categories is not None:
             self.categories = open(str(cnndata.categories)).read().splitlines()
         self.img = np.zeros_like(self.data['data'])
+        self.input_size = None
+        self.step = 0
         self.total_px = 0
         self.progress_bar = None
         self.req_q = CTX.JoinableQueue()
@@ -266,9 +271,9 @@ class CNN:
         # print('Objective: %g' % (obj/denom))
         return g
 
-    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, **kwargs):
+    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
-        for _ in range(n):
+        for i in range(n):
             x, y = np.random.randint(-jitter, jitter+1, 2)
             self.img = np.roll(np.roll(self.img, x, 2), y, 1)
             g = self._grad_tiled(**kwargs)
@@ -278,6 +283,10 @@ class CNN:
             if smoothing:
                 smoothed = ndimage.gaussian_filter(self.img, (0, 1, 1), mode='nearest', truncate=2)
                 self.img = self.img*(1-smoothing) + smoothed*smoothing
+            if save_intermediates:
+                h, w = self.input_size
+                to_image(self._deprocess(self.img)).resize((w, h), Image.BICUBIC).save('out%04d.bmp' % self.step)
+            self.step += 1
         if tv_weight is not None:
             self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
 
@@ -401,6 +410,8 @@ class CNN:
         input_arr = self._preprocess(np.float32(input_img))
         self.total_px = 0
         self.progress_bar = None
+        self.input_size = input_arr.shape[1:]
+        self.step = 0
         try:
             detail = self._octave_detail(input_arr, layers=_layers, progress=progress, **kwargs)
         except KeyboardInterrupt:
