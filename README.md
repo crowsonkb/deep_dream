@@ -14,7 +14,7 @@ This implementation of Deep Dream is able to divide the gradient ascent step int
 Example
 -------
 
-```
+```python
 import deep_dream as dd
 from PIL import Image
 
@@ -24,14 +24,14 @@ img = Image.open('kodim/img0022.jpg').resize((768, 512), Image.LANCZOS)
 
 <img src="example_in.jpg" width="384" height="256">
 
-```
+```python
 out = cnn.dream(img, 'inception_4a/output', min_size=64, per_octave=4, n=8, step_size=0.5, smoothing=0.02)
 dd.to_image(out).save('example_med.jpg', quality=85)
 ```
 
 <img src="example_med.jpg" width="384" height="256">
 
-```
+```python
 out = cnn.dream(img, 'inception_4a/output', min_size=64, per_octave=4, n=12, step_size=1.2, smoothing=0.01)
 dd.to_image(out).save('example_out.jpg', quality=85)
 ```
