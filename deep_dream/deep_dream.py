@@ -288,7 +288,7 @@ class CNN:
         if tv_weight is not None:
             self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
 
-    def _octave_detail(self, base, min_size=32, per_octave=2, fn=None, **kwargs):
+    def _octave_detail(self, base, min_size=128, per_octave=2, fn=None, **kwargs):
         if 'n' not in kwargs:
             kwargs['n'] = 10
         n = kwargs['n']
