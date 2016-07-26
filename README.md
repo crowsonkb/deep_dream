@@ -96,7 +96,7 @@ Locations of pre-trained `.caffemodel` files (run `get_models.sh` to automatical
 Pre-built Amazon image
 ----------------------
 
-[ami-afef20cf in us-west-2](https://us-west-2.console.aws.amazon.com/ec2/v2/home?region=us-west-2#LaunchInstanceWizard:ami=ami-afef20cf) contains deep_dream with all dependencies preinstalled and built for Python 3.5, and all models downloaded. It should be launched in a g2.2xlarge or g2.8xlarge instance. These instance types have 1 and 4 GPUs respectively. You can use all four GPUs from `deep_dream_cli` by specifying the parameter `--gpu 0 1 2 3`.
+[This AMI in us-west-2](https://us-west-2.console.aws.amazon.com/ec2/v2/home?region=us-west-2#LaunchInstanceWizard:ami=ami-98fc33f8) contains deep_dream with all dependencies preinstalled and built for Python 3.5, and all models downloaded. It should be launched in a g2.2xlarge or g2.8xlarge instance. These instance types have 1 and 4 GPUs respectively. You can use all four GPUs from `deep_dream_cli.py` or `deep_dream_test.py` by specifying the parameter `--gpus 0,1,2,3`.
 
 Requirements
 ------------
