@@ -9,6 +9,7 @@ This implementation of Deep Dream is able to divide the gradient ascent step int
 1. [Example](#example)
 1. [CNN.dream_guided() example](#cnndream_guided-example)
 1. [Models](#models)
+1. [Pre-built Amazon image](#pre-built-amazon-image)
 1. [Requirements](#requirements)
 1. [Python 3.5 build tips](#python-35-build-tips)
 
@@ -108,6 +109,11 @@ Locations of pre-trained `.caffemodel` files (run `get_models.sh` to automatical
 - [bvlc_googlenet](http://dl.caffe.berkeleyvision.org/bvlc_googlenet.caffemodel): tends toward visualizing abstract patterns, dogs, insects, and amorphous creatures.
 - [googlenet_places205](http://places.csail.mit.edu/model/googlenet_places205.tar.gz): tends toward visualizing buildings and landscapes.
 - [googlenet_places365](http://places2.csail.mit.edu/models_places365/googlenet_places365.caffemodel): newer than the places205-trained model, often more aesthetically pleasing output, tends toward visualizing buildings and landscapes.
+
+Pre-built Amazon image
+----------------------
+
+[ami-afef20cf in us-west-2](https://us-west-2.console.aws.amazon.com/ec2/v2/home?region=us-west-2#LaunchInstanceWizard:ami=ami-afef20cf) contains deep_dream with all dependencies preinstalled and built for Python 3.5, and all models downloaded. It should be launched in a g2.2xlarge or g2.8xlarge instance. These instance types have 1 and 4 GPUs respectively. You can use all four GPUs from `deep_dream_cli` by specifying the parameter `--gpu 0 1 2 3`.
 
 Requirements
 ------------
