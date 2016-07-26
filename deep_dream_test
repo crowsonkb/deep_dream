@@ -9,7 +9,7 @@ import time
 
 try:
     from IPython.core import ultratb
-    sys.excepthook = ultratb.ColorTB()
+    sys.excepthook = ultratb.ColorTB(color_scheme='Neutral')
 except ImportError:
     pass
 from PIL import Image
