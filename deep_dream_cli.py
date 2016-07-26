@@ -2,6 +2,7 @@
 
 """CLI interface to deep_dream."""
 
+import math
 import sys
 from types import SimpleNamespace
 
@@ -36,6 +37,8 @@ utils.setup_traceback()
 @click.option('--per-octave', default=2, help='The number of scales per octave.')
 @click.option('--smoothing', default=0.0, help='The per-iteration smoothing factor. Try 0.02-0.1.')
 @click.option('--step-size', default=1.5, help='The strength of each iteration.')
+@click.option('--step-size-fac', default=1.0,
+              help='The factor to multiply step_size by each octave.')
 @click.option('--tv-weight', type=float, default=None, help='The per-scale denoising weight. '
               'Higher values smooth the image less. Try 25-250.')
 def main(**kwargs):
@@ -94,9 +97,16 @@ def main(**kwargs):
 
     print('Input image size: %dx%d\n' % in_img.size)
 
-    img = cnn.dream(in_img, weights, max_tile_size=args.max_tile_size, min_size=args.min_size,
-                    n=args.n, per_octave=args.per_octave, smoothing=args.smoothing,
-                    step_size=args.step_size, tv_weight=args.tv_weight)
+    def fn(size):
+        h, w = size
+        x = min(w, h)
+        ss = args.step_size * args.step_size_fac ** (math.log2(x) - math.log2(args.min_size))
+        print('Scale: %dx%d, step_size=%0.2f' % (w, h, ss))
+        return {'step_size': ss}
+
+    img = cnn.dream(in_img, weights, fn=fn, max_tile_size=args.max_tile_size,
+                    min_size=args.min_size, n=args.n, per_octave=args.per_octave,
+                    smoothing=args.smoothing, step_size=args.step_size, tv_weight=args.tv_weight)
 
     save_args = {}
     out_type = args.out_file.rpartition('.')[2].lower()
