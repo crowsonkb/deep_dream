@@ -5,11 +5,59 @@ An implementation of the Deep Dream image processing algorithm which is able to 
 
 This implementation of Deep Dream is able to divide the gradient ascent step into tiles if a too-large image is being processed. By default, any image larger than 512x512 will be divided into tiles no larger than 512x512. The tile seams are obscured by applying a random shift on each gradient ascent step (this also greatly improves the image quality by summing over the translation dependence inherent to the neural network architecture). Further, several tiles can be processed simultaneously on machines with more than one compute device (CPU or GPU).
 
+1. [Usage](#usage)
 1. [Example](#example)
 1. [CNN.dream_guided() example](#cnndream_guided-example)
 1. [Models](#models)
 1. [Requirements](#requirements)
 1. [Python 3.5 build tips](#python-35-build-tips)
+
+Usage
+-----
+```
+usage: deep_dream_cli [-h] [--cpu-workers CPU_WORKERS] [--gpu GPU [GPU ...]]
+                      [--guide-image GUIDE_IMAGE] [--layer LAYER [LAYER ...]]
+                      [--max-input-size MAX_INPUT_SIZE]
+                      [--max-tile-size MAX_TILE_SIZE] [--min-size MIN_SIZE]
+                      [--model MODEL] [--n N] [--per-octave PER_OCTAVE]
+                      [--smoothing SMOOTHING] [--step-size STEP_SIZE]
+                      [--tv-weight TV_WEIGHT]
+                      in_file [out_file]
+
+CLI interface to deep_dream.
+
+positional arguments:
+  in_file               the input image
+  out_file              the output image
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --cpu-workers CPU_WORKERS
+                        the number of CPU workers to start
+  --gpu GPU [GPU ...]   the CUDA device IDs to use
+  --guide-image GUIDE_IMAGE
+                        the guide image to use
+  --layer LAYER [LAYER ...]
+                        the network layers to target
+  --max-input-size MAX_INPUT_SIZE
+                        rescale the input image to fit into this size
+  --max-tile-size MAX_TILE_SIZE
+                        the maximum dimension of a tile
+  --min-size MIN_SIZE   don't use scales where the small edge of the image is
+                        below this
+  --model MODEL         the model to use. valid values: GOOGLENET_BVLC,
+                        GOOGLENET_PLACES205, GOOGLENET_PLACES365, RESNET_50
+  --n N                 the number of iterations per scale
+  --per-octave PER_OCTAVE
+                        the number of scales per octave
+  --smoothing SMOOTHING
+                        the per-iteration smoothing factor. try 0.02-0.1.
+  --step-size STEP_SIZE
+                        the strength of each iteration
+  --tv-weight TV_WEIGHT
+                        the per-scale denoising weight. higher smooths the
+                        image less. try 25-200.
+```
 
 Example
 -------
