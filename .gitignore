@@ -1,3 +1,4 @@
 __pycache__
 venv
+*.caffemodel
 test_output.png
