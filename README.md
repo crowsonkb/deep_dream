@@ -103,10 +103,8 @@ Requirements
 
 - Python 3.5.
 - [Caffe](http://caffe.berkeleyvision.org), built against Python 3.5. (See the [Python 3.5 build tips](#python-35-build-tips).) I would encourage you to use Caffe's nVidia GPU support if possible: it runs several times faster on even a laptop GPU (GeForce GT 750M) than on the CPU.
-- [PyPI](https://pypi.python.org/pypi) packages [Pillow](http://pillow.readthedocs.io/en/stable/) and [tqdm](https://pypi.python.org/pypi/tqdm) (and Caffe dependencies such as numpy and scikit-image; see its requirements.txt).
-- For optional HDR export:
-    - [openexrpython](https://github.com/jamesbowman/openexrpython), installed from git master instead of 1.2.0 from PyPI, for OpenEXR export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
-    - [tifffile](https://pypi.python.org/pypi/tifffile) from PyPI for float32 TIFF export.
+- The contents of `requirements.txt`. (`pip install -U -r requirements.txt`)
+    - [openexrpython](https://github.com/jamesbowman/openexrpython) needs to be installed from git master instead of 1.2.0 from PyPI for optional OpenEXR export. (`pip install -U git+https://github.com/jamesbowman/openexrpython`)
 - Pre-trained Caffe models (run `get_models.sh`; see [Models](#models) section).
 
 Python 3.5 build tips
