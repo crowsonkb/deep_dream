@@ -16,7 +16,8 @@ utils.setup_traceback()
 
 @click.command()
 @click.option('--cpu-workers', default=0, help='The number of CPU workers to start.')
-@click.option('--gpus', type=utils.IntList(), default='', help='The CUDA device IDs to use.')
+@click.option('--gpus', type=utils.List(int, 'integer'), default='',
+              help='The CUDA device IDs to use.')
 @click.option('--max-tile-size', default=512, help='The maximum dimension of a tile.')
 def main(cpu_workers=None, gpus=None, max_tile_size=None):
     pwd = Path(__file__).parent

@@ -17,10 +17,14 @@ def setup_traceback(mode='Plain', color_scheme='Neutral', require=False, **kwarg
             raise err
 
 
-class IntList(click.ParamType):
-    """A Click parameter type that converts a comma-separated list of ints to a list."""
-    name = 'int_list'
-    sep = ','
+class List(click.ParamType):
+    """A Click parameter type: a comma-separated list."""
+    def __init__(self, converter, type_name=None, sep=','):
+        self.converter = converter
+        self.name = 'list'
+        self.sep = sep
+        if type_name:
+            self.name = type_name + '_list'
 
     def convert(self, value, param, ctx):
         lst = []
@@ -28,7 +32,7 @@ class IntList(click.ParamType):
             try:
                 items = value.split(self.sep)
                 for item in items:
-                    lst.append(int(item.strip()))
-            except ValueError:
-                self.fail('%s is not a valid comma separated list of integers' % value, param, ctx)
+                    lst.append(self.converter(item))
+            except (TypeError, ValueError):
+                self.fail('%s is not a valid comma separated %s' % (value, self.name), param, ctx)
         return lst
