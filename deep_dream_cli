@@ -94,10 +94,19 @@ def main():
         w, h = round(w*fac), round(h*fac)
         in_img = in_img.resize((w, h), Image.LANCZOS)
 
+    weights = cnn.prepare_layer_list(layers)
+    print('Layer weights:')
+    for weight in reversed(weights.items()):
+        print('    %s: %g' % weight)
+    print()
+
     print('Input image size: %dx%d' % in_img.size)
+    print()
+
     img = cnn.dream(in_img, layers, max_tile_size=args.max_tile_size, min_size=args.min_size,
                     n=args.n, per_octave=args.per_octave, smoothing=args.smoothing,
                     step_size=args.step_size, tv_weight=args.tv_weight)
+
     save_args = {}
     out_type = args.out_file.rpartition('.')[2].lower()
     if out_type == 'jpg' or out_type == 'jpeg':
