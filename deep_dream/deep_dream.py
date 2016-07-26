@@ -22,6 +22,7 @@ from .tile_worker import TileRequest, TileWorker
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
 
+# Note that the per-channel mean values are in BGR order.
 CNNData = namedtuple('CNNData', 'deploy model mean categories')
 CNNData.__new__.__defaults__ = (None,)  # Make categories optional.
 
@@ -154,8 +155,8 @@ class CNN:
             gpus (Optional[list[int]]): The GPU device numbers to start GPU workers on.
         """
         caffe.set_mode_cpu()
-        self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
-                                    mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
+        self.net = caffe.Net(str(cnndata.deploy), 1, weights=str(cnndata.model))
+        self.mean = np.float32(cnndata.mean)
         self.data = _LayerIndexer(self.net, 'data')
         self.diff = _LayerIndexer(self.net, 'diff')
         try:
@@ -196,10 +197,12 @@ class CNN:
         return True
 
     def _preprocess(self, img):
-        return np.rollaxis(np.float32(img), 2)[::-1] - self.net.transformer.mean['data']
+        """Converts from HxWx3 RGB to 3xHxW BGR and subtracts the network per-channel mean."""
+        return np.rollaxis(np.float32(img), 2)[::-1] - self.mean[:, None, None]
 
     def _deprocess(self, img):
-        return np.dstack((img + self.net.transformer.mean['data'])[::-1])
+        """Converts from 3xHxW BGR to HxWx3 RGB and adds the network per-channel mean."""
+        return np.dstack((img + self.mean[:, None, None])[::-1])
 
     def get_features(self, input_img, layers=None, max_tile_size=512):
         """Retrieve feature maps from the classification (forward) phase of operation.
@@ -232,7 +235,8 @@ class CNN:
         if progress:
             if not self.progress_bar:
                 self.progress_bar = tqdm(
-                    total=self.total_px, unit='pix', unit_scale=True, ncols=80, smoothing=0.1)
+                    total=self.total_px, unit='pix', unit_scale=True, ncols=80, dynamic_ncols=True,
+                    smoothing=0.1)
 
         h, w = self.img.shape[1:]  # Height and width of input image
         ny, nx = (h-1)//max_tile_size+1, (w-1)//max_tile_size+1  # Number of tiles per dimension
@@ -384,8 +388,6 @@ class CNN:
                 and 500x500.
             n (Optional[int]): The number of gradient ascent steps per scale. Defaults to 10.
             step_size (Optional[float]): The strength of each individual gradient ascent step.
-                Specifically, each step will change the image's pixel values by a median of
-                step_size.
             smoothing (Optional[float]): The factor to smooth the image by after each gradient
                 ascent step. Try 0.02-0.1.
             tv_weight (Optional[float]): The denoising weight for total variation regularization,

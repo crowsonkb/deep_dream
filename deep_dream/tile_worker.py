@@ -29,8 +29,7 @@ class TileWorker:
             os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
         import caffe
 
-        self.net = caffe.Classifier(str(cnndata.deploy), str(cnndata.model),
-                                    mean=np.float32(cnndata.mean), channel_swap=(2, 1, 0))
+        self.net = caffe.Net(str(cnndata.deploy), 1, weights=str(cnndata.model))
         self.data = dd._LayerIndexer(self.net, 'data')
         self.diff = dd._LayerIndexer(self.net, 'diff')
 
