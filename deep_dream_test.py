@@ -20,6 +20,7 @@ utils.setup_traceback()
               help='The CUDA device IDs to use.')
 @click.option('--max-tile-size', default=512, help='The maximum dimension of a tile.')
 def main(cpu_workers=None, gpus=None, max_tile_size=None):
+    """Test/benchmark deep_dream.py."""
     pwd = Path(__file__).parent
     cnn = dd.CNN(dd.GOOGLENET_BVLC, cpu_workers=cpu_workers, gpus=gpus)
     input_img = Image.open(str(pwd/'kodim/img0022.jpg')).resize((1536, 1024), Image.LANCZOS)
