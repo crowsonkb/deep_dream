@@ -89,7 +89,7 @@ def main(**kwargs):
         weights = cnn.prepare_guide_weights(guide_img, layers)
         print('Layers:')
         for layer in reversed(weights.keys()):
-            print('    ', layer)
+            print('    %s' % layer)
     print()
 
     print('Input image size: %dx%d\n' % in_img.size)
