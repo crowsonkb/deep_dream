@@ -4,8 +4,14 @@
 
 import argparse
 from pathlib import Path
+import sys
 import time
 
+try:
+    from IPython.core import ultratb
+    sys.excepthook = ultratb.ColorTB()
+except ImportError:
+    pass
 from PIL import Image
 
 import deep_dream as dd
@@ -15,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cpu-workers', type=int, default=0,
                         help='the number of CPU workers to start')
-    parser.add_argument('--gpus', type=int, nargs='+', default=[],
+    parser.add_argument('--gpu', type=int, nargs='+', default=[],
                         help='the CUDA device IDs to use')
     parser.add_argument('--max-tile-size', type=int, default=512,
                         help='the maximum dimension of a tile')
@@ -23,10 +29,8 @@ def main():
     args = parser.parse_args()
 
     pwd = Path(__file__).parent
-    if not args.gpus and not args.cpu_workers:
-        args.cpu_workers = 1
-    cnn = dd.CNN(dd.GOOGLENET_BVLC, cpu_workers=args.cpu_workers, gpus=args.gpus)
-    input_img = Image.open(str(pwd/'kodim/img0022.jpg')).resize((768, 512), Image.LANCZOS)
+    cnn = dd.CNN(dd.GOOGLENET_BVLC, cpu_workers=args.cpu_workers, gpus=args.gpu)
+    input_img = Image.open(str(pwd/'kodim/img0022.jpg')).resize((1536, 1024), Image.LANCZOS)
     print('Input image classes:')
     for c in cnn.classify(input_img, 5):
         print('%.3f %s' % c)
