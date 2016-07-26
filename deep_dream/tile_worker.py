@@ -28,6 +28,7 @@ class TileWorker:
         if gpu is not None:
             os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
         import caffe
+        caffe.set_random_seed(0)
 
         self.net = caffe.Net(str(cnndata.deploy), 1, weights=str(cnndata.model))
         self.data = dd._LayerIndexer(self.net, 'data')

@@ -16,48 +16,31 @@ This implementation of Deep Dream is able to divide the gradient ascent step int
 Usage
 -----
 ```
-usage: deep_dream_cli [-h] [--cpu-workers CPU_WORKERS] [--gpu GPU [GPU ...]]
-                      [--guide-image GUIDE_IMAGE] [--layer LAYER [LAYER ...]]
-                      [--max-input-size MAX_INPUT_SIZE]
-                      [--max-tile-size MAX_TILE_SIZE] [--min-size MIN_SIZE]
-                      [--model MODEL] [--n N] [--per-octave PER_OCTAVE]
-                      [--smoothing SMOOTHING] [--step-size STEP_SIZE]
-                      [--tv-weight TV_WEIGHT]
-                      in_file [out_file]
+Usage: deep_dream_cli.py [OPTIONS] IN_FILE [OUT_FILE]
 
-CLI interface to deep_dream.
+  CLI interface to deep_dream.
 
-positional arguments:
-  in_file               the input image
-  out_file              the output image
+Options:
+  --cpu-workers INTEGER        The number of CPU workers to start.
+  --gpus INTEGER_LIST          The CUDA device IDs to use.
+  --guide-image TEXT           The guide image to use.
+  --layers RE_LIST             The network layers to target.
+  --max-input-size INTEGER...  Rescale the input image to fit into this size.
+  --max-tile-size INTEGER      The maximum dimension of a tile.
+  --min-size INTEGER           Don't use scales where the small edge of the
+                               image is below this.
+  --model TEXT                 The model to use. Valid values: GOOGLENET_BVLC,
+                               GOOGLENET_PLACES205, GOOGLENET_PLACES365,
+                               RESNET_50.
+  --n INTEGER                  The number of iterations per scale.
+  --per-octave INTEGER         The number of scales per octave.
+  --smoothing FLOAT            The per-iteration smoothing factor. Try
+                               0.02-0.1.
+  --step-size FLOAT            The strength of each iteration.
+  --tv-weight FLOAT            The per-scale denoising weight. Higher values
+                               smooth the image less. Try 25-250.
+  --help                       Show this message and exit.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --cpu-workers CPU_WORKERS
-                        the number of CPU workers to start
-  --gpu GPU [GPU ...]   the CUDA device IDs to use
-  --guide-image GUIDE_IMAGE
-                        the guide image to use
-  --layer LAYER [LAYER ...]
-                        the network layers to target
-  --max-input-size MAX_INPUT_SIZE
-                        rescale the input image to fit into this size
-  --max-tile-size MAX_TILE_SIZE
-                        the maximum dimension of a tile
-  --min-size MIN_SIZE   don't use scales where the small edge of the image is
-                        below this
-  --model MODEL         the model to use. valid values: GOOGLENET_BVLC,
-                        GOOGLENET_PLACES205, GOOGLENET_PLACES365, RESNET_50
-  --n N                 the number of iterations per scale
-  --per-octave PER_OCTAVE
-                        the number of scales per octave
-  --smoothing SMOOTHING
-                        the per-iteration smoothing factor. try 0.02-0.1.
-  --step-size STEP_SIZE
-                        the strength of each iteration
-  --tv-weight TV_WEIGHT
-                        the per-scale denoising weight. higher smooths the
-                        image less. try 25-200.
 ```
 
 Example
