@@ -2,22 +2,30 @@
 
 """CLI interface to deep_dream."""
 
+import logging
 import math
 import sys
 from types import SimpleNamespace
 
 import click
+import click_log
 from PIL import Image
 
 import deep_dream as dd
 import utils
 
 utils.setup_traceback()
-
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(utils.RedirectableStream(sys.stderr))
+handler.setFormatter(click_log.ColorFormatter())
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
 @click.command()
 @click.argument('in_file', type=click.Path(exists=True))
 @click.argument('out_file', default='out.png')
+@click.option('--log-level', default=20, is_eager=True, help='The log verbosity. 10 is debug, 20 '
+              'is info, 30 is warning, 40 is error, and 50 is critical.',
+              callback=lambda _, __, value: logger.setLevel(value))
 @click.option('--cpu-workers', type=int, default=0, help='The number of CPU workers to start.')
 @click.option('--gpus', type=utils.List(int, 'integer'), default='',
               help='The CUDA device IDs to use.')
@@ -43,10 +51,10 @@ utils.setup_traceback()
               'Higher values smooth the image less. Try 25-250.')
 def main(**kwargs):
     """CLI interface to deep_dream."""
-    print('Arguments:')
+    logger.info('Arguments:')
     for arg in sorted(kwargs.items()):
-        print('    %s: %s' % arg)
-    print()
+        logger.info('    %s: %s', *arg)
+    logger.info('')
     args = SimpleNamespace(**kwargs)
 
     args.model = args.model.upper()
@@ -62,9 +70,10 @@ def main(**kwargs):
             layers = None
             break
     if not layers:
-        print('List of valid layers:')
+        logger.critical('Invalid layers list.')
+        logger.info('List of valid layers:')
         for layer in cnn.layers():
-            print('    ' + layer)
+            logger.info('    %s', layer)
         sys.exit(1)
 
     in_img = Image.open(args.in_file)
@@ -84,24 +93,24 @@ def main(**kwargs):
 
     if args.guide_image is None:
         weights = cnn.prepare_layer_list(layers)
-        print('Layer weights:')
+        logger.info('Layer weights:')
         for weight in reversed(weights.items()):
-            print('    %s: %g' % weight)
+            logger.info('    %s: %g', *weight)
     else:
         guide_img = Image.open(args.guide_image)
         weights = cnn.prepare_guide_weights(guide_img, layers)
-        print('Layers:')
+        logger.info('Layers:')
         for layer in reversed(weights.keys()):
-            print('    %s' % layer)
-    print()
+            logger.info('    %s', layer)
+    logger.info('')
 
-    print('Input image size: %dx%d\n' % in_img.size)
+    logger.info('Input image size: %dx%d\n', *in_img.size)
 
     def fn(size):
         h, w = size
         x = min(w, h)
         ss = args.step_size * args.step_size_fac ** (math.log2(x) - math.log2(args.min_size))
-        print('Scale: %dx%d, step_size=%0.2f' % (w, h, ss))
+        logger.info('Scale: %dx%d, step_size=%0.2f', w, h, ss)
         return {'step_size': ss}
 
     img = cnn.dream(in_img, weights, fn=fn, max_tile_size=args.max_tile_size,
@@ -113,7 +122,7 @@ def main(**kwargs):
     if out_type == 'jpg' or out_type == 'jpeg':
         save_args['quality'] = 95  # TODO: make configurable
     dd.to_image(img).save(args.out_file, **save_args)
-    print('Saved to %s.' % args.out_file)
+    logger.info('Saved to %s.', args.out_file)
 
 if __name__ == '__main__':
     main()

@@ -1,9 +1,12 @@
 from collections import namedtuple
+import logging
 import os
 
 import numpy as np
 
 import deep_dream as dd
+
+logger = logging.getLogger('__main__')
 
 TileRequest = namedtuple('TileRequest', 'resp data layers')
 TileResponse = namedtuple('TileResponse', 'resp grad obj denom')
@@ -14,14 +17,17 @@ class TileWorker:
         self.req_q = req_q
         self.resp_q = resp_q
         if gpu is not None:
-            name = 'GPU-%d' % gpu
+            name = 'GPU%d' % gpu
         else:
             name = 'CPU'
         self.proc = dd.CTX.Process(target=self._run, args=(cnndata, gpu), name=name, daemon=True)
         self.proc.start()
+        logger.debug('Started tile worker (%s, pid %d)', name, self.proc.pid)
 
     def __del__(self):
-        self.proc.terminate()
+        if not self.proc.exitcode:
+            self.proc.terminate()
+            logger.debug('Shut down tile worker (%s, pid %d)', self.proc.name, self.proc.pid)
 
     # pylint: disable=attribute-defined-outside-init
     def _run(self, cnndata, gpu=None):
@@ -58,7 +64,7 @@ class TileWorker:
         for i, layer in enumerate(layers_list):
             weighted = self.data[layer] * layers[layer]
 
-            obj_num += dd.normf(weighted, 1)
+            obj_num += dd.normf(weighted)
             if not np.ndim(layers[layer]):
                 obj_denom += self.data[layer].size * np.abs(layers[layer])
             else:

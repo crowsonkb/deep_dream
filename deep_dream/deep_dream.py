@@ -3,11 +3,13 @@
 # pylint: disable=invalid-name, wrong-import-position
 
 from collections import namedtuple, OrderedDict
+import logging
 import multiprocessing as mp
 import os
 from pathlib import Path
 import queue
 import re
+import sys
 
 os.environ['GLOG_minloglevel'] = '1'
 import caffe
@@ -18,6 +20,8 @@ from skimage.restoration import denoise_tv_bregman
 from tqdm import tqdm
 
 from .tile_worker import TileRequest, TileWorker
+
+logger = logging.getLogger('__main__')
 
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
@@ -189,9 +193,11 @@ class CNN:
         """Ensures that the worker subprocesses are healthy. If one has terminated, it will
            terminate the others, set self.is_healthy to False, and raise a CaffeStateError."""
         if not self.is_healthy:
-            raise CaffeStateError('The worker processes were terminated. Please make a new CNN instance.')
+            raise CaffeStateError(
+                'The worker processes were terminated. Please make a new CNN instance.')
         for worker in self.workers:
             if worker.proc.exitcode:
+                logger.error('Tile worker %s (pid %d) crashed.', worker.proc.name, worker.proc.pid)
                 self.__del__()
                 raise CaffeStateError('Worker process malfunction detected; terminating others.')
         return True
@@ -234,6 +240,8 @@ class CNN:
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
+                redir = logger.root.handlers[0].stream
+                redir.redirect(lambda s: s.rstrip() and tqdm.write(s, file=redir.stream))
                 self.progress_bar = tqdm(
                     total=self.total_px, unit='pix', unit_scale=True, ncols=80, dynamic_ncols=True,
                     smoothing=0.1)
@@ -271,7 +279,7 @@ class CNN:
             if progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
-        # print('Objective: %g' % (obj/denom))
+        logger.debug('Objective: %g', obj)
         return g
 
     def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, save_intermediates=False, **kwargs):
@@ -417,6 +425,7 @@ class CNN:
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
+                logger.root.handlers[0].stream.restore()
         output = self._deprocess(detail + input_arr)
         if save_intermediates:
             to_image(output).save('out%04d.bmp' % self.step)

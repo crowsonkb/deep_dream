@@ -36,3 +36,18 @@ class List(click.ParamType):
             except (TypeError, ValueError):
                 self.fail('%s is not a valid comma separated %s' % (value, self.name), param, ctx)
         return lst
+
+
+class RedirectableStream:
+    def __init__(self, stream):
+        self.stream = stream
+        self.write = self.stream.write
+
+    def flush(self):
+        self.stream.flush()
+
+    def redirect(self, write_fn):
+        self.write = write_fn
+
+    def restore(self):
+        self.write = self.stream.write
