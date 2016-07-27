@@ -3,6 +3,7 @@
 import sys
 
 import click
+import click_log
 
 
 def setup_traceback(mode='Plain', color_scheme='Neutral', require=False, **kwargs):
@@ -38,16 +39,11 @@ class List(click.ParamType):
         return lst
 
 
-class RedirectableStream:
-    def __init__(self, stream):
-        self.stream = stream
-        self.write = self.stream.write
-
-    def flush(self):
-        self.stream.flush()
-
-    def redirect(self, write_fn):
-        self.write = write_fn
-
-    def restore(self):
-        self.write = self.stream.write
+class ColorFormatter(click_log.ColorFormatter):
+    colors = {
+        'critical': dict(fg='red', bold=True),
+        'error': dict(fg='red'),
+        'exception': dict(fg='red'),
+        'warning': dict(fg='yellow'),
+        'debug': dict(fg='blue'),
+    }

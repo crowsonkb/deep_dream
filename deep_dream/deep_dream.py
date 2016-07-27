@@ -21,7 +21,23 @@ from tqdm import tqdm
 
 from .tile_worker import TileRequest, TileWorker
 
-logger = logging.getLogger('__main__')
+
+class TQDMStream:
+    def __init__(self, stream):
+        self.stream = stream
+        self.redirected = False
+
+    def write(self, s):
+        if self.redirected:
+            s.rstrip() and tqdm.write(s, file=self.stream)
+        else:
+            self.stream.write(s)
+
+    def flush(self):
+        self.stream.flush()
+
+logger = logging.getLogger(__name__)
+stream = TQDMStream(sys.stderr)
 
 CTX = mp.get_context('spawn')
 EPS = np.finfo(np.float32).eps
@@ -240,8 +256,7 @@ class CNN:
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
-                redir = logger.root.handlers[0].stream
-                redir.redirect(lambda s: s.rstrip() and tqdm.write(s, file=redir.stream))
+                stream.redirected = True
                 self.progress_bar = tqdm(
                     total=self.total_px, unit='pix', unit_scale=True, ncols=80, dynamic_ncols=True,
                     smoothing=0.1)
@@ -279,7 +294,7 @@ class CNN:
             if progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
-        logger.debug('Objective: %g', obj)
+        logger.debug('Objective: %g', np.sqrt(obj))
         return g
 
     def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, save_intermediates=False, **kwargs):
@@ -425,7 +440,7 @@ class CNN:
         finally:
             if self.progress_bar:
                 self.progress_bar.close()
-                logger.root.handlers[0].stream.restore()
+                stream.redirected = False
         output = self._deprocess(detail + input_arr)
         if save_intermediates:
             to_image(output).save('out%04d.bmp' % self.step)

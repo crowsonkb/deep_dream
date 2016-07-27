@@ -3,15 +3,22 @@
 """Test/benchmark deep_dream.py."""
 
 from pathlib import Path
+import logging
 import time
 
 import click
 from PIL import Image
 
 import deep_dream as dd
+from deep_dream import tile_worker
 import utils
 
 utils.setup_traceback()
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(dd.stream)
+handler.setFormatter(utils.ColorFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+tile_worker.logger.setLevel(logging.DEBUG)
 
 
 @click.command()

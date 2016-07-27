@@ -8,24 +8,29 @@ import sys
 from types import SimpleNamespace
 
 import click
-import click_log
 from PIL import Image
 
 import deep_dream as dd
+from deep_dream import tile_worker
 import utils
 
 utils.setup_traceback()
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(utils.RedirectableStream(sys.stderr))
-handler.setFormatter(click_log.ColorFormatter())
-logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+handler = logging.StreamHandler(dd.stream)
+handler.setFormatter(utils.ColorFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+
+def set_log_level(ctx, param, value):
+    logger.setLevel(value)
+    dd.logger.setLevel(value)
+    tile_worker.logger.setLevel(value)
 
 @click.command()
 @click.argument('in_file', type=click.Path(exists=True))
 @click.argument('out_file', default='out.png')
 @click.option('--log-level', default=20, is_eager=True, help='The log verbosity. 10 is debug, 20 '
-              'is info, 30 is warning, 40 is error, and 50 is critical.',
-              callback=lambda _, __, value: logger.setLevel(value))
+              'is info, 30 is warning, 40 is error, and 50 is critical.', callback=set_log_level)
 @click.option('--cpu-workers', type=int, default=0, help='The number of CPU workers to start.')
 @click.option('--gpus', type=utils.List(int, 'integer'), default='',
               help='The CUDA device IDs to use.')

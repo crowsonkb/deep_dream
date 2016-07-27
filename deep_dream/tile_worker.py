@@ -6,7 +6,7 @@ import numpy as np
 
 import deep_dream as dd
 
-logger = logging.getLogger('__main__')
+logger = logging.getLogger(__name__)
 
 TileRequest = namedtuple('TileRequest', 'resp data layers')
 TileResponse = namedtuple('TileResponse', 'resp grad obj denom')
