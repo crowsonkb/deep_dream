@@ -64,7 +64,7 @@ class TileWorker:
         for i, layer in enumerate(layers_list):
             weighted = self.data[layer] * layers[layer]
 
-            obj_num += dd.normf(weighted)
+            obj_num += np.sum(weighted**2)
             if not np.ndim(layers[layer]):
                 obj_denom += self.data[layer].size * np.abs(layers[layer])
             else:
