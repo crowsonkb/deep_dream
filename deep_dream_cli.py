@@ -14,7 +14,7 @@ import deep_dream as dd
 from deep_dream import tile_worker
 import utils
 
-utils.setup_traceback()
+utils.setup_traceback('Context')
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(dd.stream)
 handler.setFormatter(utils.ColorFormatter())
