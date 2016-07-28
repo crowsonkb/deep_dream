@@ -136,6 +136,11 @@ def _resize(arr, size, method=Image.BICUBIC):
     return np.stack([np.array(img) for img in imgs_resized])
 
 
+def roll2(arr, xy):
+    x, y = xy
+    return np.roll(np.roll(arr, x, 2), y, 1)
+
+
 class ShapeError(Exception):
     """Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe."""
     def __str__(self):
@@ -252,7 +257,7 @@ class CNN:
             features[layer] = self.data[layer].copy()
         return features
 
-    def _grad_tiled(self, layers, progress=False, max_tile_size=512):
+    def _grad_tiled(self, layers, progress=True, max_tile_size=512, **kwargs):
         # pylint: disable=too-many-locals
         if progress:
             if not self.progress_bar:
@@ -294,26 +299,31 @@ class CNN:
             if progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
-        logger.debug('Objective: %g', np.sqrt(obj))
-        return g
+        return g, obj/2
 
-    def _step(self, n=1, step_size=1.5, jitter=32, seed=0, smoothing=0, tv_weight=None, save_intermediates=False, **kwargs):
+    TV_KERNEL = np.array([[[-0.26516504, -0.62944174, -0.625     , -0.62944174, -0.26516504],
+                           [-0.62944174,  0.        ,  1.25888348,  0.        , -0.62944174],
+                           [-0.625     ,  1.25888348,  3.56066017,  1.25888348, -0.625     ],
+                           [-0.62944174,  0.        ,  1.25888348,  0.        , -0.62944174],
+                           [-0.26516504, -0.62944174, -0.625     , -0.62944174, -0.26516504]]])
+
+    def _step(self, n=1, step_size=1, l2_reg=0, tv_reg=0, jitter=32, seed=0, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
         for _ in range(n):
-            x, y = np.random.randint(-jitter, jitter+1, 2)
-            self.img = np.roll(np.roll(self.img, x, 2), y, 1)
-            g = self._grad_tiled(**kwargs)
+            xy = np.random.randint(-jitter, jitter+1, 2)
+            self.img = roll2(self.img, xy)
+            g, _ = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
-            self.img += step_size * g
-            self.img = np.roll(np.roll(self.img, -x, 2), -y, 1)
-            if smoothing:
-                smoothed = ndimage.gaussian_filter(self.img, (0, 1, 1), mode='nearest', truncate=2)
-                self.img = self.img*(1-smoothing) + smoothed*smoothing
+            l2 = self.img.copy()
+            l2 /= np.mean(np.abs(l2)) + EPS
+            tv = ndimage.convolve(self.img, self.TV_KERNEL)
+            tv /= np.mean(np.abs(tv)) + EPS
+            update = step_size*g - l2_reg*l2 - tv_reg*tv
+            self.img += update
+            self.img = roll2(self.img, -xy)
             if save_intermediates:
                 to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
-        if tv_weight is not None:
-            self.img = call_normalized(denoise_tv_bregman, self.img.T, tv_weight).T
 
     def _octave_detail(self, base, min_size=128, per_octave=2, fn=None, **kwargs):
         if 'n' not in kwargs:
