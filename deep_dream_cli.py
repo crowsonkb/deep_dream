@@ -35,6 +35,7 @@ def set_log_level(ctx, param, value):
 @click.option('--gpus', type=utils.List(int, 'integer'), default='',
               help='The CUDA device IDs to use.')
 @click.option('--guide-image', type=str, default=None, help='The guide image to use.')
+@click.option('--l2-reg', default=0.0, help='L2 regularization strength (mean reversion).')
 @click.option('--layers', type=utils.List(str, 're'), default='',
               help='The network layers to target.')
 @click.option('--max-input-size', type=int, nargs=2, default=None,
@@ -48,12 +49,10 @@ def set_log_level(ctx, param, value):
               'GOOGLENET_BVLC, GOOGLENET_PLACES205, GOOGLENET_PLACES365, RESNET_50.')
 @click.option('--n', default=10, help='The number of iterations per scale.')
 @click.option('--per-octave', default=2, help='The number of scales per octave.')
-@click.option('--smoothing', default=0.0, help='The per-iteration smoothing factor. Try 0.02-0.1.')
-@click.option('--step-size', default=1.5, help='The strength of each iteration.')
-@click.option('--step-size-fac', default=1.0,
-              help='The factor to multiply step_size by each octave.')
-@click.option('--tv-weight', type=float, default=None, help='The per-scale denoising weight. '
-              'Higher values smooth the image less. Try 25-250.')
+@click.option('--step-size', default=1.0, help='The strength of each iteration.')
+@click.option('--tv-reg', default=0.0, help='Total variation regularization strength (smoothing).')
+# @click.option('--step-size-fac', default=1.0,
+#               help='The factor to multiply step_size by each octave.')
 def main(**kwargs):
     """CLI interface to deep_dream."""
     logger.info('Arguments:')
@@ -111,16 +110,16 @@ def main(**kwargs):
 
     logger.info('Input image size: %dx%d\n', *in_img.size)
 
-    def fn(size):
-        h, w = size
-        x = min(w, h)
-        ss = args.step_size * args.step_size_fac ** (math.log2(x) - math.log2(args.min_size))
-        logger.info('Scale: %dx%d, step_size=%0.2f', w, h, ss)
-        return {'step_size': ss}
+    # def fn(size):
+    #     h, w = size
+    #     x = min(w, h)
+    #     ss = args.step_size * args.step_size_fac ** (math.log2(x) - math.log2(args.min_size))
+    #     logger.info('Scale: %dx%d, step_size=%0.2f', w, h, ss)
+    #     return {'step_size': ss}
 
-    img = cnn.dream(in_img, weights, fn=fn, max_tile_size=args.max_tile_size,
+    img = cnn.dream(in_img, weights, l2_reg=args.l2_reg, max_tile_size=args.max_tile_size,
                     min_size=args.min_size, n=args.n, per_octave=args.per_octave,
-                    smoothing=args.smoothing, step_size=args.step_size, tv_weight=args.tv_weight)
+                    step_size=args.step_size, tv_reg=args.tv_reg)
 
     save_args = {}
     out_type = args.out_file.rpartition('.')[2].lower()
