@@ -16,8 +16,10 @@ import caffe
 import numpy as np
 from PIL import Image
 from scipy import ndimage
-from skimage.restoration import denoise_tv_bregman
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    pass
 
 from .tile_worker import TileRequest, TileWorker
 
@@ -28,7 +30,7 @@ class TQDMStream:
         self.redirected = False
 
     def write(self, s):
-        if self.redirected:
+        if 'tqdm' in globals() and self.redirected:
             s.rstrip() and tqdm.write(s, file=self.stream)
         else:
             self.stream.write(s)
@@ -259,7 +261,7 @@ class CNN:
 
     def _grad_tiled(self, layers, progress=True, max_tile_size=512, **kwargs):
         # pylint: disable=too-many-locals
-        if progress:
+        if 'tqdm' in globals() and progress:
             if not self.progress_bar:
                 stream.redirected = True
                 self.progress_bar = tqdm(
@@ -296,7 +298,7 @@ class CNN:
                     continue
             sy, sx = resp
             g[:, sy:sy+grad.shape[1], sx:sx+grad.shape[2]] = grad
-            if progress:
+            if 'tqdm' in globals() and progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
         return g, obj/2
