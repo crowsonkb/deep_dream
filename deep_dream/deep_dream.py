@@ -319,12 +319,15 @@ class CNN:
             tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
             tv = ndimage.convolve(self.img, tv_kernel)
             tv /= np.mean(np.abs(tv)) + EPS
-            update = g_weight*g - l2_reg*l2 - tv_reg*tv
+            grad = g_weight*g - l2_reg*l2 - tv_reg*tv
 
             # ADAM update
-            m1 = b1*m1 + (1-b1)*update
-            m2 = b2*m2 + (1-b2)*update**2
-            self.img += step_size * m1/(1-b1**t) / (np.sqrt(m2/(1-b2**t)) + EPS)
+            m1 = b1*m1 + (1-b1)*grad
+            m2 = b2*m2 + (1-b2)*grad**2
+            update = step_size * m1/(1-b1**t) / (np.sqrt(m2/(1-b2**t)) + EPS)
+            self.img += update
+            logger.debug('Step %d, %dx%d, mean update: %g',
+                         self.step, self.img.shape[2], self.img.shape[1], np.mean(np.abs(update)))
 
             self.img = roll2(self.img, -xy)
             m1, m2 = roll2(m1, -xy), roll2(m2, -xy)
