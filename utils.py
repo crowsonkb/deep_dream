@@ -1,9 +1,9 @@
 """Miscellaneous utilities for the CLI interfaces."""
 
+import logging
 import sys
 
 import click
-import click_log
 
 
 def setup_traceback(mode='Plain', color_scheme='Neutral', require=False, **kwargs):
@@ -39,7 +39,7 @@ class List(click.ParamType):
         return lst
 
 
-class ColorFormatter(click_log.ColorFormatter):
+class ColorFormatter(logging.Formatter):
     colors = {
         'critical': dict(fg='red', bold=True),
         'error': dict(fg='red'),
@@ -47,3 +47,14 @@ class ColorFormatter(click_log.ColorFormatter):
         'warning': dict(fg='yellow'),
         'debug': dict(fg='blue'),
     }
+
+    def format(self, record):
+        if not record.exc_info:
+            level = record.levelname.lower()
+            if level in self.colors:
+                prefix = click.style('{}: '.format(level),
+                                     **self.colors[level])
+                record.msg = '\n'.join(prefix + x
+                                       for x in str(record.msg).splitlines())
+
+        return logging.Formatter.format(self, record)
