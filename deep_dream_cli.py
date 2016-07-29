@@ -56,8 +56,8 @@ def set_log_level(ctx, param, value):
 def main(**kwargs):
     """CLI interface to deep_dream."""
     logger.info('Arguments:')
-    for arg in sorted(kwargs.items()):
-        logger.info('    %s: %s', *arg)
+    for param, arg in sorted(kwargs.items()):
+        logger.info('    %s: %s', param, arg)
     logger.info('')
     args = SimpleNamespace(**kwargs)
 
