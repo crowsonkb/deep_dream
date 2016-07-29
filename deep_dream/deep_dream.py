@@ -281,7 +281,7 @@ class CNN:
 
                 data = self.img[:, sy:sy+th, sx:sx+tw]
                 self.ensure_healthy()
-                self.req_q.put(TileRequest((sy, sx), data, layers))
+                self.req_q.put(TileRequest((sy, sx), data, layers, self.step == 0))
 
         obj, denom = 0, 0
         for _ in range(ny*nx):
@@ -301,26 +301,33 @@ class CNN:
 
         return g, obj/2
 
-    TV_KERNEL = np.array([[[-0.26516504, -0.62944174, -0.625     , -0.62944174, -0.26516504],
-                           [-0.62944174,  0.        ,  1.25888348,  0.        , -0.62944174],
-                           [-0.625     ,  1.25888348,  3.56066017,  1.25888348, -0.625     ],
-                           [-0.62944174,  0.        ,  1.25888348,  0.        , -0.62944174],
-                           [-0.26516504, -0.62944174, -0.625     , -0.62944174, -0.26516504]]])
-
-    def _step(self, n=1, step_size=1, l2_reg=0, tv_reg=0, jitter=32, seed=0, save_intermediates=False, **kwargs):
+    def _step(self, n=1, step_size=1, l2_reg=0, tv_reg=0, jitter=32, seed=0, momentum=(0.9, 0.9),
+              save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
-        for _ in range(n):
+        b1, b2 = momentum
+        m1, m2 = np.zeros_like(self.img), np.zeros_like(self.img)
+        for t in range(1, n+1):
             xy = np.random.randint(-jitter, jitter+1, 2)
             self.img = roll2(self.img, xy)
+            m1, m2 = roll2(m1, xy), roll2(m2, xy)
+
+            # Compute gradients
             g, _ = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
             l2 = self.img.copy()
             l2 /= np.mean(np.abs(l2)) + EPS
-            tv = ndimage.convolve(self.img, self.TV_KERNEL)
+            tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
+            tv = ndimage.convolve(self.img, tv_kernel)
             tv /= np.mean(np.abs(tv)) + EPS
+
+            # ADAM update
             update = step_size*g - l2_reg*l2 - tv_reg*tv
-            self.img += update
+            m1 = b1*m1 + (1-b1)*update
+            m2 = b2*m2 + (1-b2)*update**2
+            self.img += step_size * m1/(1-b1**t) / (np.sqrt(m2/(1-b2**t)) + EPS)
+
             self.img = roll2(self.img, -xy)
+            m1, m2 = roll2(m1, -xy), roll2(m2, -xy)
             if save_intermediates:
                 to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
@@ -421,11 +428,6 @@ class CNN:
                 and 500x500.
             n (Optional[int]): The number of gradient ascent steps per scale. Defaults to 10.
             step_size (Optional[float]): The strength of each individual gradient ascent step.
-            smoothing (Optional[float]): The factor to smooth the image by after each gradient
-                ascent step. Try 0.02-0.1.
-            tv_weight (Optional[float]): The denoising weight for total variation regularization,
-                performed at the end of each scale. Higher values smooth the image less.
-                Try 25-100.
             max_tile_size (Optional[int]): Defaults to 512, suitable for a GPU with 2 GB RAM.
                 Higher values perform better; if Caffe runs out of GPU memory and crashes then it
                 should be lowered.

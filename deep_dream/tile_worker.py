@@ -8,7 +8,7 @@ import deep_dream as dd
 
 logger = logging.getLogger(__name__)
 
-TileRequest = namedtuple('TileRequest', 'resp data layers')
+TileRequest = namedtuple('TileRequest', 'resp data layers cleanup')
 TileResponse = namedtuple('TileResponse', 'resp grad obj denom')
 
 
@@ -46,9 +46,10 @@ class TileWorker:
             caffe.set_mode_cpu()
 
         while True:
-            for blob in self.net.blobs:
-                self.diff[blob] = 0
             req = self.req_q.get()
+            if req.cleanup:
+                for blob in self.net.blobs:
+                    self.diff[blob] = 0
             grad, obj = self._grad_single_tile(req.data, req.layers)
             resp = TileResponse(req.resp, grad, obj[0], obj[1])
             self.resp_q.put(resp)
@@ -60,6 +61,8 @@ class TileWorker:
         self.data['data'] = data
 
         layers_list = list(layers.keys())
+        for layer in layers_list:
+            self.diff[layer] = 0
         self.net.forward(end=layers_list[0])
         for i, layer in enumerate(layers_list):
             weighted = self.data[layer] * layers[layer]
