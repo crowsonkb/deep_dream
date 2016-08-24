@@ -317,11 +317,9 @@ class CNN:
             g, _ = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
             l2 = self.img.copy()
-            l2 /= np.mean(np.abs(l2)) + EPS
             tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
-            tv = ndimage.convolve(self.img, tv_kernel)
-            tv /= np.mean(np.abs(tv)) + EPS
-            grad = g_weight*g - l2_reg*l2 - tv_reg*tv
+            tv = ndimage.convolve(self.img, tv_kernel, mode='nearest')
+            grad = g_weight*g - l2_reg*l2/255 - tv_reg*tv/255
 
             # ADAM update
             m1 = b1*m1 + (1-b1)*grad
