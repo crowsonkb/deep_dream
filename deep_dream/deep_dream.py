@@ -259,7 +259,7 @@ class CNN:
             features[layer] = self.data[layer].copy()
         return features
 
-    def _grad_tiled(self, layers, progress=True, max_tile_size=512, **kwargs):
+    def _grad_tiled(self, layers, progress=True, max_tile_size=512, guide_mode=0, **kwargs):
         # pylint: disable=too-many-locals
         if 'tqdm' in globals() and progress:
             if not self.progress_bar:
@@ -283,7 +283,7 @@ class CNN:
 
                 data = self.img[:, sy:sy+th, sx:sx+tw]
                 self.ensure_healthy()
-                self.req_q.put(TileRequest((sy, sx), data, layers, self.step == 0))
+                self.req_q.put(TileRequest((sy, sx), data, layers, self.step == 0, guide_mode))
 
         for _ in range(ny*nx):
             while True:
@@ -465,4 +465,4 @@ class CNN:
         relative weights of the layers are determined automatically."""
         self.ensure_healthy()
         weights = self.prepare_guide_weights(guide_img, layers, max_guide_size)
-        return self.dream(input_img, weights, **kwargs)
+        return self.dream(input_img, weights, guide_mode=1, **kwargs)

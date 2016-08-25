@@ -2,13 +2,11 @@ from collections import namedtuple
 import logging
 import os
 
-import numpy as np
-
 import deep_dream as dd
 
 logger = logging.getLogger(__name__)
 
-TileRequest = namedtuple('TileRequest', 'resp data layers cleanup')
+TileRequest = namedtuple('TileRequest', 'resp data layers cleanup guide_mode')
 TileResponse = namedtuple('TileResponse', 'resp grad')
 
 
@@ -50,12 +48,12 @@ class TileWorker:
             if req.cleanup:
                 for blob in self.net.blobs:
                     self.diff[blob] = 0
-            grad = self._grad_single_tile(req.data, req.layers)
+            grad = self._grad_single_tile(req.data, req.layers, guide_mode=req.guide_mode)
             resp = TileResponse(req.resp, grad)
             self.resp_q.put(resp)
             self.req_q.task_done()
 
-    def _grad_single_tile(self, data, layers):
+    def _grad_single_tile(self, data, layers, guide_mode=1):
         self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
         self.data['data'] = data
 
@@ -64,9 +62,15 @@ class TileWorker:
             self.diff[layer] = 0
         self.net.forward(end=layers_list[0])
         for i, layer in enumerate(layers_list):
-            weighted = self.data[layer] * layers[layer]
-
-            self.diff[layer] += weighted / (dd.normf(weighted)+dd.EPS)
+            if not guide_mode:
+                weighted = self.data[layer] * layers[layer]
+                self.diff[layer] += weighted / (dd.normf(weighted)+dd.EPS)
+            else:
+                assert layers[layer].ndim == 3
+                cur_feat = self.data[layer].reshape(self.data[layer].shape[0], -1)
+                guide_feat = layers[layer].reshape(layers[layer].shape[0], -1)
+                a = cur_feat.T @ guide_feat
+                self.diff[layer].reshape(cur_feat.shape[0], -1)[:] += guide_feat[:, a.argmax(1)]
 
             if i+1 == len(layers):
                 self.net.backward(start=layer)
