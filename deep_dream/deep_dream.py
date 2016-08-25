@@ -285,14 +285,11 @@ class CNN:
                 self.ensure_healthy()
                 self.req_q.put(TileRequest((sy, sx), data, layers, self.step == 0))
 
-        obj, denom = 0, 0
         for _ in range(ny*nx):
             while True:
                 try:
                     self.ensure_healthy()
-                    resp, grad, _obj, _denom = self.resp_q.get(True, 1)
-                    obj += _obj
-                    denom += _denom
+                    resp, grad = self.resp_q.get(True, 1)
                     break
                 except queue.Empty:
                     continue
@@ -301,7 +298,7 @@ class CNN:
             if 'tqdm' in globals() and progress:
                 self.progress_bar.update(np.prod(grad.shape[-2:]))
 
-        return g, obj/2
+        return g
 
     def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0, momentum=(0.9, 0.9),
               jitter=32, seed=0, save_intermediates=False, **kwargs):
@@ -314,7 +311,7 @@ class CNN:
             m1, m2 = roll2(m1, xy), roll2(m2, xy)
 
             # Compute normalized gradients
-            g, _ = self._grad_tiled(**kwargs)
+            g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
             l2 = self.img.copy()
             tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])

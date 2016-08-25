@@ -9,7 +9,7 @@ import deep_dream as dd
 logger = logging.getLogger(__name__)
 
 TileRequest = namedtuple('TileRequest', 'resp data layers cleanup')
-TileResponse = namedtuple('TileResponse', 'resp grad obj denom')
+TileResponse = namedtuple('TileResponse', 'resp grad')
 
 
 class TileWorker:
@@ -50,13 +50,12 @@ class TileWorker:
             if req.cleanup:
                 for blob in self.net.blobs:
                     self.diff[blob] = 0
-            grad, obj = self._grad_single_tile(req.data, req.layers)
-            resp = TileResponse(req.resp, grad, obj[0], obj[1])
+            grad = self._grad_single_tile(req.data, req.layers)
+            resp = TileResponse(req.resp, grad)
             self.resp_q.put(resp)
             self.req_q.task_done()
 
     def _grad_single_tile(self, data, layers):
-        obj_num, obj_denom = 0, 0
         self.net.blobs['data'].reshape(1, 3, data.shape[1], data.shape[2])
         self.data['data'] = data
 
@@ -67,12 +66,6 @@ class TileWorker:
         for i, layer in enumerate(layers_list):
             weighted = self.data[layer] * layers[layer]
 
-            obj_num += np.sum(weighted**2)
-            if not np.ndim(layers[layer]):
-                obj_denom += self.data[layer].size * np.abs(layers[layer])
-            else:
-                obj_denom += self.data[layer][0].size * dd.normf(layers[layer], 1)
-
             self.diff[layer] += weighted / (dd.normf(weighted)+dd.EPS)
 
             if i+1 == len(layers):
@@ -80,4 +73,4 @@ class TileWorker:
             else:
                 self.net.backward(start=layer, end=layers_list[i+1])
 
-        return self.diff['data'].copy(), (obj_num, obj_denom)
+        return self.diff['data'].copy()
