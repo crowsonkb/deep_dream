@@ -300,34 +300,22 @@ class CNN:
 
         return g
 
-    def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0, momentum=(0.9, 0.9),
+    def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0,
               jitter=32, seed=0, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
-        b1, b2 = momentum
-        m1, m2 = np.zeros_like(self.img), np.zeros_like(self.img)
         for t in range(1, n+1):
             xy = np.random.randint(-jitter, jitter+1, 2)
             self.img = roll2(self.img, xy)
-            m1, m2 = roll2(m1, xy), roll2(m2, xy)
 
-            # Compute normalized gradients
+            # Compute normalized gradients and update image
             g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
-            l2 = self.img.copy()
             tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
-            tv = ndimage.convolve(self.img, tv_kernel, mode='nearest')
-            grad = g_weight*g - l2_reg*l2/255 - tv_reg*tv/255
-
-            # ADAM update
-            m1 = b1*m1 + (1-b1)*grad
-            m2 = b2*m2 + (1-b2)*grad**2
-            update = step_size * m1/(1-b1**t) / (np.sqrt(m2/(1-b2**t)) + EPS)
-            self.img += update
-            logger.debug('Step %d, %dx%d, mean update: %g',
-                         self.step, self.img.shape[2], self.img.shape[1], np.mean(np.abs(update)))
+            tv_g = ndimage.convolve(self.img, tv_kernel, mode='nearest')
+            grad = g_weight*g - l2_reg*self.img/255 - tv_reg*tv_g/255
+            self.img += step_size * grad
 
             self.img = roll2(self.img, -xy)
-            m1, m2 = roll2(m1, -xy), roll2(m2, -xy)
             if save_intermediates:
                 to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
