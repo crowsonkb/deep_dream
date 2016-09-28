@@ -303,19 +303,20 @@ class CNN:
     def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0,
               jitter=32, seed=0, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
+        orig_img = self.img
         for t in range(1, n+1):
             xy = np.random.randint(-jitter, jitter+1, 2)
-            self.img = roll2(self.img, xy)
+            self.img, orig_img = roll2(self.img, xy), roll2(orig_img, xy)
 
             # Compute normalized gradients and update image
             g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
             tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
             tv_g = ndimage.convolve(self.img, tv_kernel, mode='nearest')
-            grad = g_weight*g - l2_reg*self.img/255 - tv_reg*tv_g/255
+            grad = g_weight*g - l2_reg*(self.img - orig_img)/255 - tv_reg*tv_g/255
             self.img += step_size * grad
 
-            self.img = roll2(self.img, -xy)
+            self.img, orig_img = roll2(self.img, -xy), roll2(orig_img, -xy)
             if save_intermediates:
                 to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
