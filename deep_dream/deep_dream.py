@@ -143,6 +143,23 @@ def roll2(arr, xy):
     return np.roll(np.roll(arr, x, 2), y, 1)
 
 
+def tv_norm(x, beta=2):
+    """Computes the total variation norm and its gradient. From jcjohnson/cnn-vis."""
+    x_diff = ndimage.convolve1d(x, [-1, 1], axis=2, mode='wrap')
+    y_diff = ndimage.convolve1d(x, [-1, 1], axis=1, mode='wrap')
+    grad_norm2 = x_diff**2 + y_diff**2 + EPS
+    grad_norm_beta = grad_norm2**(beta/2)
+    loss = np.sum(grad_norm_beta)
+    dgrad_norm2 = (beta/2) * grad_norm2**(beta/2 - 1)
+    dx_diff = 2 * x_diff * dgrad_norm2
+    dy_diff = 2 * y_diff * dgrad_norm2
+    dxy_diff = dx_diff + dy_diff
+    dx_diff = roll2(dx_diff, (1, 0))
+    dy_diff = roll2(dy_diff, (0, 1))
+    grad = dxy_diff - dx_diff - dy_diff
+    return loss, grad
+
+
 class ShapeError(Exception):
     """Raised by CNN when an invalid layer shape is requested which would otherwise crash Caffe."""
     def __str__(self):
@@ -300,23 +317,23 @@ class CNN:
 
         return g
 
-    def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0,
+    def _step(self, n=1, step_size=1, g_weight=1, l2_reg=0, tv_reg=0, p=2, beta=2,
               jitter=32, seed=0, save_intermediates=False, **kwargs):
         np.random.seed(self.img.size + seed)
-        orig_img = self.img
         for t in range(1, n+1):
             xy = np.random.randint(-jitter, jitter+1, 2)
-            self.img, orig_img = roll2(self.img, xy), roll2(orig_img, xy)
+            self.img = roll2(self.img, xy)
 
             # Compute normalized gradients and update image
             g = self._grad_tiled(**kwargs)
             g /= np.mean(np.abs(g)) + EPS
-            tv_kernel = np.float32([[[0, -1, 0], [-1, 4, -1], [0, -1, 0]]])
-            tv_g = ndimage.convolve(self.img, tv_kernel, mode='nearest')
-            grad = g_weight*g - l2_reg*(self.img - orig_img)/255 - tv_reg*tv_g/255
+            _, tv_g = tv_norm(self.img, beta)
+            tv_g /= 255**(beta-1)
+            l2_g = p * np.sign(self.img) * np.abs(self.img / 127.5)**(p-1)
+            grad = g_weight*g - l2_reg*l2_g - tv_reg*tv_g
             self.img += step_size * grad
 
-            self.img, orig_img = roll2(self.img, -xy), roll2(orig_img, -xy)
+            self.img = roll2(self.img, -xy)
             if save_intermediates:
                 to_image(self._deprocess(self.img)).save('out%04d.bmp' % self.step)
             self.step += 1
