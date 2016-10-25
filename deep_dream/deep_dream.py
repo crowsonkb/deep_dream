@@ -57,7 +57,7 @@ GOOGLENET_BVLC = CNNData(
 GOOGLENET_PLACES205 = CNNData(
     _BASE_DIR/'googlenet_places205/deploy_places205.prototxt',
     _BASE_DIR/'googlenet_places205/googlelet_places205_train_iter_2400000.caffemodel',
-    (104.051, 112.514, 116.676),  # TODO: find the actual Places205 mean
+    (105.417, 113.753, 116.047),
     categories=_BASE_DIR/'googlenet_places205/categories.txt')
 GOOGLENET_PLACES365 = CNNData(
     _BASE_DIR/'googlenet_places365/deploy_googlenet_places365.prototxt',
